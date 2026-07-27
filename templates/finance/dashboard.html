@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Executive Financial Dashboard — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1>Executive Financial Dashboard</h1>
+        <p>Revenue from active client contracts versus paid payroll outflows and net operating margin.</p>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('finance.invoices') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px;">
+            Manage Invoices
+        </a>
+        <a href="{{ url_for('finance.export_payroll_csv') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
+            Export Payroll CSV
+        </a>
+        <a href="{{ url_for('payroll.index') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
+            Open Payroll Ledger
+        </a>
+    </div>
+</div>
+
+<!-- Primary P&amp;L Metrics -->
+<div class="metric-grid">
+    <div class="metric-card">
+        <div class="metric-card__eyebrow"><span class="led led--teal"></span> Expected Monthly Revenue</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(metrics.total_revenue) }}</div>
+        <div class="metric-card__context">Sum of billing rates · {{ metrics.active_clients }} active client(s)</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card__eyebrow"><span class="led led--amber"></span> Payroll Expenses (Paid)</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(metrics.total_expenses) }}</div>
+        <div class="metric-card__context">{{ metrics.paid_slips }} paid salary slip(s)</div>
+    </div>
+    <div class="metric-card {{ 'metric-card--alert' if metrics.net_profit < 0 }}">
+        <div class="metric-card__eyebrow">
+            <span class="led {{ 'led--red' if metrics.net_profit < 0 else 'led--teal' }}"></span>
+            Net Profit
+        </div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(metrics.net_profit) }}</div>
+        <div class="metric-card__context">Revenue − Paid Payroll</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card__eyebrow"><span class="led led--slate"></span> Profit Margin</div>
+        <div class="metric-card__value mono">{{ "{:,.1f}".format(metrics.margin_pct) }}%</div>
+        <div class="metric-card__context">Net profit ÷ expected revenue</div>
+    </div>
+</div>
+
+<!-- Invoice Collection Snapshot -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 8px 0 24px;">
+    <div class="panel" style="padding: 16px 20px;">
+        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+            Outstanding Receivables
+        </div>
+        <div class="mono" style="font-size: 1.25rem; font-weight: 700; color: var(--accent-amber);">
+            Rs. {{ "{:,.2f}".format(metrics.invoice_stats.outstanding) }}
+        </div>
+    </div>
+    <div class="panel" style="padding: 16px 20px;">
+        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+            Paid Invoices
+        </div>
+        <div class="mono" style="font-size: 1.25rem; font-weight: 700; color: var(--accent-teal);">
+            {{ metrics.invoice_stats.Paid }}
+        </div>
+    </div>
+    <div class="panel" style="padding: 16px 20px;">
+        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+            Unpaid / Overdue
+        </div>
+        <div class="mono" style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">
+            {{ metrics.invoice_stats.Unpaid }} / {{ metrics.invoice_stats.Overdue }}
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel__header">
+        <h3>Recent Client Invoices</h3>
+        <span class="count-tag">{{ recent_invoices|length }} latest</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Client</th>
+                    <th style="text-align: right;">Amount</th>
+                    <th>Issue</th>
+                    <th>Due</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in recent_invoices %}
+                <tr>
+                    <td class="mono primary">{{ inv.invoice_number }}</td>
+                    <td>
+                        {{ inv.clients.client_name if inv.clients else '—' }}
+                        {% if inv.clients and inv.clients.company_name %}
+                        <div style="font-size: 0.76rem; color: var(--text-muted);">{{ inv.clients.company_name }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="mono" style="text-align: right;">Rs. {{ "{:,.2f}".format(inv.amount or 0) }}</td>
+                    <td class="mono" style="font-size: 0.82rem;">{{ inv.issue_date or '—' }}</td>
+                    <td class="mono" style="font-size: 0.82rem;">{{ inv.due_date or '—' }}</td>
+                    <td>
+                        {% if inv.status == 'Paid' %}
+                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Paid</span>
+                        {% elif inv.status == 'Overdue' %}
+                            <span class="status-pill status-pill--red"><span class="led led--red"></span> Overdue</span>
+                        {% else %}
+                            <span class="status-pill status-pill--amber"><span class="led led--amber"></span> Unpaid</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="6">No invoices yet. Create your first invoice from the Invoices module.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

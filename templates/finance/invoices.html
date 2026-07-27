@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Client Invoicing — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1>Client Invoicing &amp; Receivables</h1>
+        <p>Issue client invoices, track Paid / Unpaid / Overdue status, and monitor collections.</p>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('finance.dashboard') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
+            Financial Dashboard
+        </a>
+        <a href="{{ url_for('finance.export_payroll_csv') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
+            Export Payroll CSV
+        </a>
+    </div>
+</div>
+
+<!-- Collection Summary -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="panel" style="padding: 16px 20px;">
+        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+            Total Billed
+        </div>
+        <div class="mono" style="font-size: 1.3rem; font-weight: 700;">Rs. {{ "{:,.2f}".format(totals.billed) }}</div>
+    </div>
+    <div class="panel" style="padding: 16px 20px;">
+        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+            Collected (Paid)
+        </div>
+        <div class="mono" style="font-size: 1.3rem; font-weight: 700; color: var(--accent-teal);">Rs. {{ "{:,.2f}".format(totals.collected) }}</div>
+    </div>
+    <div class="panel" style="padding: 16px 20px;">
+        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+            Outstanding
+        </div>
+        <div class="mono" style="font-size: 1.3rem; font-weight: 700; color: var(--accent-amber);">Rs. {{ "{:,.2f}".format(totals.outstanding) }}</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; align-items: start; margin-bottom: 24px;">
+    <!-- Create Invoice Form -->
+    <div class="panel">
+        <div class="panel__header">
+            <h3>Create Client Invoice</h3>
+            <span class="count-tag">New</span>
+        </div>
+        <form action="{{ url_for('finance.invoices') }}" method="post" style="padding: 20px 24px;">
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div class="field">
+                    <label for="client_id">Client <span style="color: var(--accent-red);">*</span></label>
+                    <select id="client_id" name="client_id" class="form-select" onchange="autofillAmount(this)" required>
+                        <option value="" data-rate="0">-- Select Corporate Client --</option>
+                        {% for c in clients %}
+                        {% set rate = c.monthly_billing_rate if c.monthly_billing_rate not in [None, '', 0, 0.0] else (c.rate_per_guard or 0) %}
+                        <option value="{{ c.id }}" data-rate="{{ rate }}">
+                            {{ c.client_name }}{% if c.company_name %} ({{ c.company_name }}){% endif %}
+                            — {{ c.status or 'Active' }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="invoice_number">Invoice Number</label>
+                    <input type="text" id="invoice_number" name="invoice_number" value="{{ default_invoice_number }}" placeholder="INV-2026-001">
+                </div>
+
+                <div class="field">
+                    <label for="amount">Amount (PKR) <span style="color: var(--accent-red);">*</span></label>
+                    <input type="number" step="any" min="0.01" id="amount" name="amount" required placeholder="e.g. 350000" inputmode="decimal">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="field">
+                        <label for="issue_date">Issue Date</label>
+                        <input type="date" id="issue_date" name="issue_date" value="{{ default_issue }}">
+                    </div>
+                    <div class="field">
+                        <label for="due_date">Due Date</label>
+                        <input type="date" id="due_date" name="due_date" value="{{ default_due }}">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="status">Initial Status</label>
+                    <select id="status" name="status" class="form-select">
+                        <option value="Unpaid" selected>Unpaid</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Overdue">Overdue</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 11px;">Generate Invoice</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Status Filter + Quick Stats -->
+    <div class="panel">
+        <div class="panel__header">
+            <h3>Filter by Status</h3>
+            <span class="count-tag">{{ counts.All }} total</span>
+        </div>
+        <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px;">
+            <a href="{{ url_for('finance.invoices') }}" class="tab-item {{ 'active' if not status_filter }}" style="text-decoration: none;">
+                All Invoices <span class="tab-badge">{{ counts.All }}</span>
+            </a>
+            <a href="{{ url_for('finance.invoices', status='Unpaid') }}" class="tab-item {{ 'active' if status_filter == 'Unpaid' }}" style="text-decoration: none;">
+                <span class="led led--amber"></span> Unpaid <span class="tab-badge">{{ counts.Unpaid }}</span>
+            </a>
+            <a href="{{ url_for('finance.invoices', status='Overdue') }}" class="tab-item {{ 'active' if status_filter == 'Overdue' }}" style="text-decoration: none;">
+                <span class="led led--red"></span> Overdue <span class="tab-badge">{{ counts.Overdue }}</span>
+            </a>
+            <a href="{{ url_for('finance.invoices', status='Paid') }}" class="tab-item {{ 'active' if status_filter == 'Paid' }}" style="text-decoration: none;">
+                <span class="led led--teal"></span> Paid <span class="tab-badge">{{ counts.Paid }}</span>
+            </a>
+            <p style="margin: 12px 0 0; font-size: 0.82rem; color: var(--text-muted);">
+                Unpaid invoices past their due date are auto-flagged as Overdue when you open this page.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Invoice Ledger -->
+<div class="panel">
+    <div class="panel__header">
+        <h3>
+            {% if status_filter %}{{ status_filter }} Invoices{% else %}All Client Invoices{% endif %}
+        </h3>
+        <span class="count-tag">{{ invoices|length }} Record(s)</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Client</th>
+                    <th style="text-align: right;">Amount</th>
+                    <th>Issue Date</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invoices %}
+                <tr>
+                    <td class="mono primary">{{ inv.invoice_number }}</td>
+                    <td>
+                        <div>{{ inv.clients.client_name if inv.clients else '—' }}</div>
+                        {% if inv.clients and inv.clients.company_name %}
+                        <div style="font-size: 0.76rem; color: var(--text-muted);">{{ inv.clients.company_name }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="mono" style="text-align: right; font-weight: 700;">
+                        Rs. {{ "{:,.2f}".format(inv.amount or 0) }}
+                    </td>
+                    <td class="mono" style="font-size: 0.82rem;">{{ inv.issue_date or '—' }}</td>
+                    <td class="mono" style="font-size: 0.82rem;">{{ inv.due_date or '—' }}</td>
+                    <td>
+                        {% if inv.status == 'Paid' %}
+                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Paid</span>
+                        {% elif inv.status == 'Overdue' %}
+                            <span class="status-pill status-pill--red"><span class="led led--red"></span> Overdue</span>
+                        {% else %}
+                            <span class="status-pill status-pill--amber"><span class="led led--amber"></span> Unpaid</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        {% if inv.status != 'Paid' %}
+                        <a href="{{ url_for('finance.mark_invoice_paid', invoice_id=inv.id) }}"
+                           class="action-btn"
+                           onclick="return confirm('Mark invoice {{ inv.invoice_number }} as Paid?');"
+                           title="Mark as Paid">
+                            Mark Paid
+                        </a>
+                        {% else %}
+                        <span style="color: var(--accent-teal); font-size: 0.8rem; font-family: var(--font-mono);">✓ Settled</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="7">No invoices found for this filter. Create one using the form above.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function autofillAmount(selectElem) {
+    const selected = selectElem.options[selectElem.selectedIndex];
+    const rate = parseFloat(selected.getAttribute('data-rate')) || 0;
+    if (rate > 0) {
+        document.getElementById('amount').value = rate;
+    }
+}
+</script>
+{% endblock %}

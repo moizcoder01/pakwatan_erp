@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} — Pakwatan Security ERP{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Error {{ code }}</h1>
+    <p>{{ message }}</p>
+</div>
+<a href="{{ url_for('dashboard.index') }}" class="btn-primary" style="display: inline-flex; text-decoration: none; padding: 10px 18px;">Back to Dashboard</a>
+{% endblock %}
+
+{% block guest_content %}
+<div style="max-width: 480px; margin: 80px auto; padding: 24px; text-align: center;">
+    <h1>Error {{ code }}</h1>
+    <p>{{ message }}</p>
+    <a href="{{ url_for('auth.login') }}">Return to login</a>
+</div>
+{% endblock %}

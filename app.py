@@ -22,6 +22,7 @@ from blueprints.guards import guards_bp
 from blueprints.clients import clients_bp
 from blueprints.deployments import deployments_bp
 from blueprints.payroll import payroll_bp
+from blueprints.finance import finance_bp
 
 
 def create_app():
@@ -41,6 +42,7 @@ def create_app():
     app.register_blueprint(clients_bp, url_prefix="/clients")
     app.register_blueprint(deployments_bp, url_prefix="/deployments")
     app.register_blueprint(payroll_bp, url_prefix="/payroll")
+    app.register_blueprint(finance_bp, url_prefix="/finance")
 
 
 

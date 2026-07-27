@@ -107,12 +107,18 @@ def mark_attendance():
         except ValueError:
             overtime_hours = 0.0
 
+        # Phase-1 schema used attendance_date (NOT NULL) + stricter status labels.
+        # Chunk 6 adds date / overtime_hours. Write both date fields for compatibility.
+        db_status = "On Leave" if status == "Leave" else status
         payload = {
             "guard_id": guard_id,
             "date": att_date,
-            "status": status,
+            "attendance_date": att_date,
+            "status": db_status,
             "overtime_hours": overtime_hours,
         }
+        if db_status in ("Absent", "On Leave"):
+            payload["reason_for_absence"] = request.form.get("reason_for_absence", "").strip() or status
 
         try:
             client.table("attendance").insert(payload).execute()
@@ -120,10 +126,10 @@ def mark_attendance():
             return redirect(url_for("payroll.mark_attendance"))
         except Exception as e:
             err_msg = str(e)
-            if "PGRST204" in err_msg or "schema cache" in err_msg:
+            if "overtime_hours" in err_msg or "PGRST204" in err_msg:
                 flash(
-                    "Database schema update required! Please run 'schema_chunk6.sql' in your Supabase SQL Editor to create attendance and payroll tables.",
-                    "error"
+                    "Attendance table is missing Chunk 6 columns. Re-run the updated schema_chunk6.sql in Supabase SQL Editor (it ALTERs the existing Phase-1 attendance table), then try again.",
+                    "error",
                 )
             else:
                 flash(f"Failed to log attendance: {err_msg}", "error")
@@ -204,10 +210,10 @@ def generate():
             return redirect(url_for("payroll.index"))
         except Exception as e:
             err_msg = str(e)
-            if "PGRST204" in err_msg or "schema cache" in err_msg:
+            if "PGRST204" in err_msg and "payroll" in err_msg.lower():
                 flash(
-                    "Database schema update required! Please run 'schema_chunk6.sql' in your Supabase SQL Editor to create payroll table.",
-                    "error"
+                    "Payroll table/columns missing. Re-run schema_chunk6.sql in Supabase SQL Editor, then try again.",
+                    "error",
                 )
             else:
                 flash(f"Failed to generate payslip: {err_msg}", "error")

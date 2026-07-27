@@ -102,12 +102,13 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if att.status == 'Present' %}
-                                <span class="status-pill status-pill--teal">Present</span>
-                            {% elif att.status == 'Absent' %}
+                            {% set st = att.status %}
+                            {% if st in ['Present', 'On Duty'] %}
+                                <span class="status-pill status-pill--teal">{{ st }}</span>
+                            {% elif st == 'Absent' %}
                                 <span class="status-pill status-pill--red">Absent</span>
                             {% else %}
-                                <span class="status-pill status-pill--amber">Leave</span>
+                                <span class="status-pill status-pill--amber">{{ 'Leave' if st == 'On Leave' else st }}</span>
                             {% endif %}
                         </td>
                         <td class="mono" style="text-align: right; color: var(--accent-amber);">

@@ -40,7 +40,13 @@
             <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('payroll.') and request.endpoint != 'payroll.mark_attendance' }}" href="{{ url_for('payroll.index') }}">
                 <span class="nav-icon">$</span> Payroll
             </a>
-            <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">W</span> Weapons &amp; Armory</span>
+            <a class="nav-item {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
+                <span class="nav-icon">F</span> Finance
+            </a>
+            <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('finance.') and request.endpoint != 'finance.dashboard' }}" href="{{ url_for('finance.invoices') }}">
+                <span class="nav-icon">I</span> Invoices
+            </a>
+            <span class="nav-item disabled" title="Coming later"><span class="nav-icon">W</span> Weapons &amp; Armory</span>
 
             <div class="sidebar__section-label">Support</div>
             <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">!</span> Complaints</span>
