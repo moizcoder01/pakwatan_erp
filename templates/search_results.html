@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Search — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Search results</h1>
+    <p>
+        {% if term %}
+            Showing matches for <strong>"{{ term }}"</strong> across guards, clients, and incidents.
+        {% else %}
+            Type at least 2 characters in the search bar above to look across guards, clients, and incidents.
+        {% endif %}
+    </p>
+</div>
+
+{% if query_too_short %}
+    <div class="empty-state">
+        <div class="glyph">⌕</div>
+        <p>Keep typing — search needs at least 2 characters.</p>
+    </div>
+{% elif term and not guards and not clients_found and not complaints %}
+    <div class="empty-state">
+        <div class="glyph">⌕</div>
+        <p>No matches for "{{ term }}". Try a name, CNIC, phone number, or ticket keyword.</p>
+    </div>
+{% elif term %}
+
+    <div class="result-section">
+        <h2><span class="led led--teal"></span> Guards <span class="count-tag">{{ guards|length }}</span></h2>
+        <div class="result-card-list">
+            {% for g in guards %}
+            <div class="result-card">
+                <div>
+                    <div class="result-card__title">{{ g.full_name }}</div>
+                    <div class="result-card__meta">{{ g.cnic }} · {{ g.phone }} · {{ g.city or '—' }}</div>
+                </div>
+                {% if g.duty_status == 'On Duty' %}
+                    <span class="status-pill status-pill--teal">On Duty</span>
+                {% elif g.duty_status == 'On Leave' %}
+                    <span class="status-pill status-pill--amber">On Leave</span>
+                {% else %}
+                    <span class="status-pill status-pill--slate">{{ g.duty_status }}</span>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="result-card"><span class="result-card__meta">No matching guards.</span></div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="result-section">
+        <h2><span class="led led--amber"></span> Clients <span class="count-tag">{{ clients_found|length }}</span></h2>
+        <div class="result-card-list">
+            {% for c in clients_found %}
+            <div class="result-card">
+                <div>
+                    <div class="result-card__title">{{ c.client_name }}</div>
+                    <div class="result-card__meta">{{ c.contact_person or '—' }} · {{ c.phone or '—' }} · {{ c.city or '—' }}</div>
+                </div>
+                <span class="status-pill {{ 'status-pill--teal' if c.status == 'Active' else 'status-pill--slate' }}">{{ c.status }}</span>
+            </div>
+            {% else %}
+            <div class="result-card"><span class="result-card__meta">No matching clients.</span></div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="result-section">
+        <h2><span class="led led--red"></span> Incidents (Complaints) <span class="count-tag">{{ complaints|length }}</span></h2>
+        <div class="result-card-list">
+            {% for c in complaints %}
+            <div class="result-card">
+                <div>
+                    <div class="result-card__title">{{ c.complaint_details[:70] }}{{ '…' if c.complaint_details|length > 70 }}</div>
+                    <div class="result-card__meta">{{ c.clients.client_name if c.clients else '—' }} · {{ c.guards.full_name if c.guards else 'No guard named' }} · {{ c.logged_at[:10] if c.logged_at else '' }}</div>
+                </div>
+                {% if c.resolution_status == 'Resolved' %}
+                    <span class="status-pill status-pill--teal">Resolved</span>
+                {% else %}
+                    <span class="status-pill status-pill--red">Unresolved</span>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="result-card"><span class="result-card__meta">No matching incidents.</span></div>
+            {% endfor %}
+        </div>
+    </div>
+
+{% else %}
+    <div class="empty-state">
+        <div class="glyph">⌕</div>
+        <p>Search for a guard's name or CNIC, a client's name, or a keyword from a complaint.</p>
+    </div>
+{% endif %}
+{% endblock %}

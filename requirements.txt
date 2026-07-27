@@ -1,0 +1,6 @@
+# Phase 1 + Phase 2 — no new packages required for auth/search/dashboard;
+# Phase 2 uses Flask's built-in signed-cookie sessions and supabase-py's
+# existing auth.sign_in_with_password / auth.set_session / auth.sign_out.
+flask==3.0.3
+supabase==2.7.4
+python-dotenv==1.0.1

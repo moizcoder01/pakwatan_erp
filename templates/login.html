@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Pakwatan Security ERP{% endblock %}
+
+{% block guest_content %}
+<div class="login-screen">
+    <div class="login-card">
+        <div class="login-card__brand">
+            <div class="login-card__brand-mark">PS</div>
+            <div>
+                <h1>Pakwatan Security</h1>
+            </div>
+        </div>
+        <p class="login-card__sub">Sign in to the ERP console with your assigned account.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-stack">
+                {% for category, message in messages %}
+                <div class="flash flash--{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="post" action="{{ url_for('auth.login') }}">
+            <input type="hidden" name="next" value="{{ next }}">
+            <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required autofocus placeholder="name@pakwatansecurity.com">
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn-primary">Sign in</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
