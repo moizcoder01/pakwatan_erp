@@ -43,7 +43,7 @@
                 <!-- Date -->
                 <div class="field">
                     <label for="date">Attendance Date <span style="color: var(--accent-red);">*</span></label>
-                    <input type="date" id="date" name="date" value="{{ form_data.get('date', '') }}" required>
+                    <input type="date" id="date" name="date" value="{{ form_data.get('date') or '' }}" required>
                 </div>
 
                 <!-- Attendance Status Radios -->
@@ -51,13 +51,13 @@
                     <label>Attendance Status</label>
                     <div style="display: flex; gap: 12px; margin-top: 6px;">
                         <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
-                            <input type="radio" name="status" value="Present" checked> <span class="led led--teal"></span> Present
+                            <input type="radio" name="status" value="Present" {% if form_data.get('status', 'Present') == 'Present' %}checked{% endif %}> <span class="led led--teal"></span> Present
                         </label>
                         <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
-                            <input type="radio" name="status" value="Absent"> <span class="led led--red"></span> Absent
+                            <input type="radio" name="status" value="Absent" {% if form_data.get('status') == 'Absent' %}checked{% endif %}> <span class="led led--red"></span> Absent
                         </label>
                         <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
-                            <input type="radio" name="status" value="Leave"> <span class="led led--amber"></span> Leave
+                            <input type="radio" name="status" value="Leave" {% if form_data.get('status') == 'Leave' %}checked{% endif %}> <span class="led led--amber"></span> Leave
                         </label>
                     </div>
                 </div>

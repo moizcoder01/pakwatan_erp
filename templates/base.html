@@ -24,7 +24,9 @@
             <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('guards.') }}" href="{{ url_for('guards.index') }}">
                 <span class="nav-icon">G</span> Guards
             </a>
-            <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">A</span> Attendance</span>
+            <a class="nav-item {{ 'active' if request.endpoint == 'payroll.mark_attendance' }}" href="{{ url_for('payroll.mark_attendance') }}">
+                <span class="nav-icon">A</span> Attendance
+            </a>
             <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('clients.') }}" href="{{ url_for('clients.index') }}">
                 <span class="nav-icon">C</span> Clients
             </a>
@@ -35,7 +37,9 @@
 
 
             <div class="sidebar__section-label">Financials</div>
-            <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">$</span> Advances &amp; Expenses</span>
+            <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('payroll.') and request.endpoint != 'payroll.mark_attendance' }}" href="{{ url_for('payroll.index') }}">
+                <span class="nav-icon">$</span> Payroll
+            </a>
             <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">W</span> Weapons &amp; Armory</span>
 
             <div class="sidebar__section-label">Support</div>

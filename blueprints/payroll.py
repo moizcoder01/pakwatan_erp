@@ -95,7 +95,12 @@ def mark_attendance():
         if not guard_id:
             flash("Please select a Guard to log attendance.", "error")
             guards = _get_guards_list(client)
-            return render_template("payroll/attendance.html", guards=guards, form_data=request.form)
+            return render_template(
+                "payroll/attendance.html",
+                guards=guards,
+                recent_attendance=[],
+                form_data=request.form,
+            )
 
         try:
             overtime_hours = float(overtime_raw) if overtime_raw else 0.0
@@ -123,7 +128,12 @@ def mark_attendance():
             else:
                 flash(f"Failed to log attendance: {err_msg}", "error")
             guards = _get_guards_list(client)
-            return render_template("payroll/attendance.html", guards=guards, form_data=request.form)
+            return render_template(
+                "payroll/attendance.html",
+                guards=guards,
+                recent_attendance=[],
+                form_data=request.form,
+            )
 
     # Fetch recent attendance records for quick view
     recent_attendance = []
@@ -136,7 +146,12 @@ def mark_attendance():
         pass
 
     guards = _get_guards_list(client)
-    return render_template("payroll/attendance.html", guards=guards, recent_attendance=recent_attendance, form_data={})
+    return render_template(
+        "payroll/attendance.html",
+        guards=guards,
+        recent_attendance=recent_attendance,
+        form_data={"date": date.today().isoformat()},
+    )
 
 
 @payroll_bp.route("/generate", methods=["GET", "POST"])
@@ -155,7 +170,12 @@ def generate():
         if not guard_id or not month:
             flash("Please select a Guard and specify the Month.", "error")
             guards = _get_guards_list(client)
-            return render_template("payroll/generate.html", guards=guards, form_data=request.form)
+            return render_template(
+                "payroll/generate.html",
+                guards=guards,
+                default_month=date.today().strftime("%B %Y"),
+                form_data=request.form,
+            )
 
         try:
             base_salary = float(base_salary_raw) if base_salary_raw else 0.0
@@ -192,7 +212,12 @@ def generate():
             else:
                 flash(f"Failed to generate payslip: {err_msg}", "error")
             guards = _get_guards_list(client)
-            return render_template("payroll/generate.html", guards=guards, form_data=request.form)
+            return render_template(
+                "payroll/generate.html",
+                guards=guards,
+                default_month=date.today().strftime("%B %Y"),
+                form_data=request.form,
+            )
 
     guards = _get_guards_list(client)
     default_month = date.today().strftime("%B %Y")
