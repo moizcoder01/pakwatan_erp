@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Register Guard / Applicant — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1>Register New Guard / Applicant</h1>
+        <p>Add a new security guard to active duty or candidate pool to waiting list.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('guards.index') }}" class="logout-link" style="text-decoration: none;">
+            ← Back to Roster
+        </a>
+    </div>
+</div>
+
+<div class="panel" style="max-width: 840px; margin: 0 auto;">
+    <div class="panel__header">
+        <h3>Personnel Registration Form</h3>
+        <span class="count-tag">New Record</span>
+    </div>
+
+    <form action="{{ url_for('guards.add') }}" method="post" style="padding: 24px 28px;">
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;">
+            
+            <!-- Full Name -->
+            <div class="field">
+                <label for="full_name">Full Name <span style="color: var(--accent-red);">*</span></label>
+                <input type="text" id="full_name" name="full_name" value="{{ form_data.get('full_name', '') }}" placeholder="e.g. Muhammad Ali" required>
+            </div>
+
+            <!-- Guard ID -->
+            <div class="field">
+                <label for="guard_id">Guard ID <span style="color: var(--text-muted); font-weight: normal;">(Auto-generated if empty)</span></label>
+                <input type="text" id="guard_id" name="guard_id" value="{{ form_data.get('guard_id', '') }}" placeholder="e.g. PK-G-1005">
+            </div>
+
+            <!-- CNIC -->
+            <div class="field">
+                <label for="cnic">CNIC Number</label>
+                <input type="text" id="cnic" name="cnic" value="{{ form_data.get('cnic', '') }}" placeholder="35201-1234567-1">
+            </div>
+
+            <!-- Phone -->
+            <div class="field">
+                <label for="phone">Phone Number <span style="color: var(--accent-red);">*</span></label>
+                <input type="text" id="phone" name="phone" value="{{ form_data.get('phone', '') }}" placeholder="0300-1234567" required>
+            </div>
+
+            <!-- Gender -->
+            <div class="field">
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender" class="form-select">
+                    <option value="Male" {% if form_data.get('gender') == 'Male' %}selected{% endif %}>Male</option>
+                    <option value="Female" {% if form_data.get('gender') == 'Female' %}selected{% endif %}>Female</option>
+                    <option value="Other" {% if form_data.get('gender') == 'Other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+
+            <!-- Blood Group -->
+            <div class="field">
+                <label for="blood_group">Blood Group</label>
+                <select id="blood_group" name="blood_group" class="form-select">
+                    <option value="">Select Blood Group</option>
+                    <option value="A+" {% if form_data.get('blood_group') == 'A+' %}selected{% endif %}>A+</option>
+                    <option value="A-" {% if form_data.get('blood_group') == 'A-' %}selected{% endif %}>A-</option>
+                    <option value="B+" {% if form_data.get('blood_group') == 'B+' %}selected{% endif %}>B+</option>
+                    <option value="B-" {% if form_data.get('blood_group') == 'B-' %}selected{% endif %}>B-</option>
+                    <option value="AB+" {% if form_data.get('blood_group') == 'AB+' %}selected{% endif %}>AB+</option>
+                    <option value="AB-" {% if form_data.get('blood_group') == 'AB-' %}selected{% endif %}>AB-</option>
+                    <option value="O+" {% if form_data.get('blood_group') == 'O+' %}selected{% endif %}>O+</option>
+                    <option value="O-" {% if form_data.get('blood_group') == 'O-' %}selected{% endif %}>O-</option>
+                </select>
+            </div>
+
+            <!-- Emergency Contact -->
+            <div class="field">
+                <label for="emergency_contact">Emergency Contact</label>
+                <input type="text" id="emergency_contact" name="emergency_contact" value="{{ form_data.get('emergency_contact', '') }}" placeholder="Name &amp; Phone">
+            </div>
+
+            <!-- Base Salary -->
+            <div class="field">
+                <label for="base_salary">Base Salary (PKR)</label>
+                <input type="number" step="500" id="base_salary" name="base_salary" value="{{ form_data.get('base_salary', '30000') }}" placeholder="e.g. 30000">
+            </div>
+
+
+            <!-- Verification Status -->
+            <div class="field">
+                <label for="verification_status">Verification Status</label>
+                <select id="verification_status" name="verification_status" class="form-select">
+                    <option value="Pending" {% if form_data.get('verification_status') == 'Pending' %}selected{% endif %}>Pending</option>
+                    <option value="Verified" {% if form_data.get('verification_status') == 'Verified' %}selected{% endif %}>Verified</option>
+                    <option value="Rejected" {% if form_data.get('verification_status') == 'Rejected' %}selected{% endif %}>Rejected</option>
+                </select>
+            </div>
+
+            <!-- Roster Status -->
+            <div class="field">
+                <label for="status">Roster / Pool Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="Active" {% if form_data.get('status', 'Active') == 'Active' %}selected{% endif %}>Active Guard</option>
+                    <option value="Waiting List" {% if form_data.get('status') == 'Waiting List' %}selected{% endif %}>Waiting List (Applicant)</option>
+                    <option value="Inactive" {% if form_data.get('status') == 'Inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="Suspended" {% if form_data.get('status') == 'Suspended' %}selected{% endif %}>Suspended</option>
+                </select>
+            </div>
+
+            <!-- Assigned Client -->
+            <div class="field">
+                <label for="assigned_client_id">Assigned Client Deployment</label>
+                <select id="assigned_client_id" name="assigned_client_id" class="form-select">
+                    <option value="">Unassigned / Applicant Pool</option>
+                    {% for client in clients %}
+                    <option value="{{ client.id }}" {% if form_data.get('assigned_client_id') == client.id %}selected{% endif %}>
+                        {{ client.client_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Address (Full Width) -->
+            <div class="field" style="grid-column: 1 / -1;">
+                <label for="address">Residential Address</label>
+                <input type="text" id="address" name="address" value="{{ form_data.get('address', '') }}" placeholder="House #, Street, City">
+            </div>
+
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; border-top: 1px solid var(--border-hairline); padding-top: 18px;">
+            <a href="{{ url_for('guards.index') }}" class="logout-link" style="text-decoration: none;">Cancel</a>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;">Save &amp; Register Personnel</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

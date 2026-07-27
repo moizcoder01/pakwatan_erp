@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Guards &amp; Applicants Ledger — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1>Guards &amp; Applicants Pool</h1>
+        <p>Manage security personnel roster, client deployment assignments, and candidate waiting list.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('guards.add') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px;">
+            <span>+</span> Register Guard / Applicant
+        </a>
+    </div>
+</div>
+
+<!-- Status Filter Tabs -->
+<div class="filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
+    <a href="{{ url_for('guards.index') }}" 
+       class="tab-item {{ 'active' if not status_filter }}">
+        All Personnel <span class="tab-badge">{{ counts.All }}</span>
+    </a>
+    <a href="{{ url_for('guards.index', status='Active') }}" 
+       class="tab-item {{ 'active' if status_filter == 'Active' }}">
+        <span class="led led--teal"></span> Active Roster <span class="tab-badge">{{ counts.Active }}</span>
+    </a>
+    <a href="{{ url_for('guards.index', status='Waiting List') }}" 
+       class="tab-item {{ 'active' if status_filter == 'Waiting List' }}">
+        <span class="led led--amber"></span> Waiting List <span class="tab-badge">{{ counts.get('Waiting List', 0) }}</span>
+    </a>
+    <a href="{{ url_for('guards.index', status='Inactive') }}" 
+       class="tab-item {{ 'active' if status_filter == 'Inactive' }}">
+        <span class="led led--slate"></span> Inactive <span class="tab-badge">{{ counts.Inactive }}</span>
+    </a>
+    <a href="{{ url_for('guards.index', status='Suspended') }}" 
+       class="tab-item {{ 'active' if status_filter == 'Suspended' }}">
+        <span class="led led--red"></span> Suspended <span class="tab-badge">{{ counts.Suspended }}</span>
+    </a>
+</div>
+
+<!-- Guards Ledger Table -->
+<div class="panel">
+    <div class="panel__header">
+        <h3>
+            {% if status_filter %}
+                {{ status_filter }} Personnel
+            {% else %}
+                All Registered Guards &amp; Applicants
+            {% endif %}
+        </h3>
+        <span class="count-tag">{{ guards|length }} Record(s)</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr>
+                    <th>Guard ID</th>
+                    <th>Full Name</th>
+                    <th>CNIC</th>
+                    <th>Phone</th>
+                    <th>Gender</th>
+                    <th>Blood</th>
+                    <th>Verification</th>
+                    <th>Status</th>
+                    <th>Assigned Client</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for guard in guards %}
+                <tr>
+                    <td class="mono primary">{{ guard.guard_id or '—' }}</td>
+                    <td class="primary">{{ guard.full_name }}</td>
+                    <td class="mono">{{ guard.cnic or '—' }}</td>
+                    <td class="mono">{{ guard.phone or '—' }}</td>
+                    <td>{{ guard.gender or '—' }}</td>
+                    <td class="mono">{{ guard.blood_group or '—' }}</td>
+                    <td>
+                        {% if guard.verification_status == 'Verified' %}
+                            <span class="status-pill status-pill--teal">Verified</span>
+                        {% elif guard.verification_status == 'Rejected' %}
+                            <span class="status-pill status-pill--red">Rejected</span>
+                        {% else %}
+                            <span class="status-pill status-pill--amber">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if guard.status == 'Active' %}
+                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Active</span>
+                        {% elif guard.status == 'Waiting List' %}
+                            <span class="status-pill status-pill--amber"><span class="led led--amber"></span> Waiting List</span>
+                        {% elif guard.status == 'Suspended' %}
+                            <span class="status-pill status-pill--red"><span class="led led--red"></span> Suspended</span>
+                        {% else %}
+                            <span class="status-pill status-pill--slate">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if guard.clients %}
+                            <span class="primary">{{ guard.clients.client_name }}</span>
+                        {% elif guard.status == 'Waiting List' %}
+                            <span style="color: var(--text-muted); font-style: italic;">Applicant Pool</span>
+                        {% else %}
+                            <span style="color: var(--text-muted);">Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <a href="{{ url_for('guards.edit', guard_id_param=guard.id) }}" class="action-btn" title="Edit Guard Details">
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="10">
+                        No guards or applicants found matching the selected filter.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

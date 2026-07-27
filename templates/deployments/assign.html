@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Deploy Guard to Site — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1>Deploy Guard to Duty Site</h1>
+        <p>Assign guard personnel to corporate client locations and specify day or night shift schedules.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('deployments.index') }}" class="logout-link" style="text-decoration: none;">
+            ← Back to Deployments Roster
+        </a>
+    </div>
+</div>
+
+<div class="panel" style="max-width: 760px; margin: 0 auto;">
+    <div class="panel__header">
+        <h3>Guard Shift Assignment Form</h3>
+        <span class="count-tag">New Assignment</span>
+    </div>
+
+    <form action="{{ url_for('deployments.assign') }}" method="post" style="padding: 24px 28px;">
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;">
+            
+            <!-- Guard Selection Dropdown -->
+            <div class="field" style="grid-column: 1 / -1;">
+                <label for="guard_id">Select Guard Personnel <span style="color: var(--accent-red);">*</span></label>
+                <select id="guard_id" name="guard_id" class="form-select" required>
+                    <option value="">-- Choose Security Guard --</option>
+                    {% for g in guards %}
+                    <option value="{{ g.id }}" {% if form_data.get('guard_id') == g.id %}selected{% endif %}>
+                        {% if g.guard_id %}[{{ g.guard_id }}] {% endif %}{{ g.full_name }} — (Status: {{ g.status or 'Active' }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Client Location Selection Dropdown -->
+            <div class="field" style="grid-column: 1 / -1;">
+                <label for="client_id">Select Client / Duty Location <span style="color: var(--accent-red);">*</span></label>
+                <select id="client_id" name="client_id" class="form-select" required>
+                    <option value="">-- Choose Corporate Client Site --</option>
+                    {% for c in clients %}
+                    <option value="{{ c.id }}" {% if form_data.get('client_id') == c.id %}selected{% endif %}>
+                        {{ c.client_name }} {% if c.company_name %}({{ c.company_name }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Shift Type -->
+            <div class="field">
+                <label for="shift_type">Shift Schedule</label>
+                <select id="shift_type" name="shift_type" class="form-select">
+                    <option value="Day" {% if form_data.get('shift_type', 'Day') == 'Day' %}selected{% endif %}>☀️ Day Shift (08:00 - 20:00)</option>
+                    <option value="Night" {% if form_data.get('shift_type') == 'Night' %}selected{% endif %}>🌙 Night Shift (20:00 - 08:00)</option>
+                </select>
+            </div>
+
+            <!-- Start Date -->
+            <div class="field">
+                <label for="start_date">Deployment Start Date</label>
+                <input type="date" id="start_date" name="start_date" value="{{ form_data.get('start_date', '') }}">
+            </div>
+
+            <!-- End Date (Optional) -->
+            <div class="field" style="grid-column: 1 / -1;">
+                <label for="end_date">Expected End Date <span style="color: var(--text-muted); font-weight: normal;">(Optional / Ongoing if blank)</span></label>
+                <input type="date" id="end_date" name="end_date" value="{{ form_data.get('end_date', '') }}">
+            </div>
+
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; border-top: 1px solid var(--border-hairline); padding-top: 18px;">
+            <a href="{{ url_for('deployments.index') }}" class="logout-link" style="text-decoration: none;">Cancel</a>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;">Confirm &amp; Deploy Guard</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

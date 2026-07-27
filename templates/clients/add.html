@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Register New Client — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1>Register New Client / Duty Site</h1>
+        <p>Add a new corporate client account, duty deployment location, and billing contract.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('clients.index') }}" class="logout-link" style="text-decoration: none;">
+            ← Back to Client Directory
+        </a>
+    </div>
+</div>
+
+<div class="panel" style="max-width: 840px; margin: 0 auto;">
+    <div class="panel__header">
+        <h3>Client Account Registration Form</h3>
+        <span class="count-tag">New Account</span>
+    </div>
+
+    <form action="{{ url_for('clients.add') }}" method="post" style="padding: 24px 28px;">
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;">
+            
+            <!-- Client / Site Name -->
+            <div class="field">
+                <label for="client_name">Client / Site Name <span style="color: var(--accent-red);">*</span></label>
+                <input type="text" id="client_name" name="client_name" value="{{ form_data.get('client_name', '') }}" placeholder="e.g. Fortress Stadium Mall" required>
+            </div>
+
+            <!-- Corporate Company Name -->
+            <div class="field">
+                <label for="company_name">Corporate Company Name</label>
+                <input type="text" id="company_name" name="company_name" value="{{ form_data.get('company_name', '') }}" placeholder="e.g. Fortress Retail Group (Pvt) Ltd">
+            </div>
+
+            <!-- Primary Contact Person -->
+            <div class="field">
+                <label for="contact_person">Contact Person</label>
+                <input type="text" id="contact_person" name="contact_person" value="{{ form_data.get('contact_person', '') }}" placeholder="e.g. Ms. Ayesha Khan">
+            </div>
+
+            <!-- Phone Number -->
+            <div class="field">
+                <label for="phone">Phone Number <span style="color: var(--accent-red);">*</span></label>
+                <input type="text" id="phone" name="phone" value="{{ form_data.get('phone', '') }}" placeholder="0321-9876543" required>
+            </div>
+
+            <!-- Email Address -->
+            <div class="field">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" value="{{ form_data.get('email', '') }}" placeholder="security@client.example">
+            </div>
+
+            <!-- Monthly Billing Rate -->
+            <div class="field">
+                <label for="monthly_billing_rate">Monthly Billing Rate (PKR)</label>
+                <input type="number" step="1000" id="monthly_billing_rate" name="monthly_billing_rate" value="{{ form_data.get('monthly_billing_rate', '') }}" placeholder="e.g. 350000">
+            </div>
+
+            <!-- Contract Start Date -->
+            <div class="field">
+                <label for="contract_start">Contract Start Date</label>
+                <input type="date" id="contract_start" name="contract_start" value="{{ form_data.get('contract_start', '') }}">
+            </div>
+
+            <!-- Contract End Date -->
+            <div class="field">
+                <label for="contract_end">Contract End Date <span style="color: var(--text-muted); font-weight: normal;">(Leave empty if ongoing)</span></label>
+                <input type="date" id="contract_end" name="contract_end" value="{{ form_data.get('contract_end', '') }}">
+            </div>
+
+            <!-- Account Status -->
+            <div class="field">
+                <label for="status">Account Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="Active" {% if form_data.get('status', 'Active') == 'Active' %}selected{% endif %}>Active</option>
+                    <option value="Inactive" {% if form_data.get('status') == 'Inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="Terminated" {% if form_data.get('status') == 'Terminated' %}selected{% endif %}>Terminated</option>
+                </select>
+            </div>
+
+            <!-- Site / Billing Address (Full Width) -->
+            <div class="field" style="grid-column: 1 / -1;">
+                <label for="address">Site Deployment / Billing Address</label>
+                <input type="text" id="address" name="address" value="{{ form_data.get('address', '') }}" placeholder="Street, Plaza, City">
+            </div>
+
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; border-top: 1px solid var(--border-hairline); padding-top: 18px;">
+            <a href="{{ url_for('clients.index') }}" class="logout-link" style="text-decoration: none;">Cancel</a>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;">Save &amp; Register Client</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

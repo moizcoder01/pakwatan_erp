@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Clients &amp; Duty Locations — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1>Clients &amp; Duty Locations</h1>
+        <p>Manage corporate security client accounts, contract billing rates, and active guard deployment sites.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('clients.add') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px;">
+            <span>+</span> Register New Client
+        </a>
+    </div>
+</div>
+
+<!-- Status Filter Tabs -->
+<div class="filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
+    <a href="{{ url_for('clients.index') }}" 
+       class="tab-item {{ 'active' if not status_filter }}">
+        All Clients <span class="tab-badge">{{ counts.All }}</span>
+    </a>
+    <a href="{{ url_for('clients.index', status='Active') }}" 
+       class="tab-item {{ 'active' if status_filter == 'Active' }}">
+        <span class="led led--teal"></span> Active Accounts <span class="tab-badge">{{ counts.Active }}</span>
+    </a>
+    <a href="{{ url_for('clients.index', status='Inactive') }}" 
+       class="tab-item {{ 'active' if status_filter == 'Inactive' }}">
+        <span class="led led--slate"></span> Inactive <span class="tab-badge">{{ counts.Inactive }}</span>
+    </a>
+    <a href="{{ url_for('clients.index', status='Terminated') }}" 
+       class="tab-item {{ 'active' if status_filter == 'Terminated' }}">
+        <span class="led led--red"></span> Terminated <span class="tab-badge">{{ counts.Terminated }}</span>
+    </a>
+</div>
+
+<!-- Clients Ledger Table -->
+<div class="panel">
+    <div class="panel__header">
+        <h3>
+            {% if status_filter %}
+                {{ status_filter }} Client Accounts
+            {% else %}
+                All Registered Client Accounts &amp; Sites
+            {% endif %}
+        </h3>
+        <span class="count-tag">{{ clients|length }} Record(s)</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr>
+                    <th>Client / Site Name</th>
+                    <th>Company Name</th>
+                    <th>Contact Person</th>
+                    <th>Phone / Email</th>
+                    <th>Contract Dates</th>
+                    <th style="text-align: right;">Billing Rate (PKR)</th>
+                    <th style="text-align: center;">Assigned Guards</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in clients %}
+                <tr>
+                    <td class="primary">
+                        {{ c.client_name }}
+                        {% if c.address %}
+                        <div style="font-size: 0.76rem; color: var(--text-muted); font-weight: normal; margin-top: 2px;">
+                            {{ c.address }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>{{ c.company_name or '—' }}</td>
+                    <td>{{ c.contact_person or '—' }}</td>
+                    <td class="mono">
+                        <div>{{ c.phone or '—' }}</div>
+                        {% if c.email %}
+                        <div style="font-size: 0.74rem; color: var(--text-muted);">{{ c.email }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="mono" style="font-size: 0.8rem;">
+                        <div>From: {{ c.contract_start or c.contract_start_date or '—' }}</div>
+                        {% if c.contract_end or c.contract_end_date %}
+                        <div style="color: var(--text-muted);">To: {{ c.contract_end or c.contract_end_date }}</div>
+                        {% else %}
+                        <div style="color: var(--accent-teal);">Ongoing</div>
+                        {% endif %}
+                    </td>
+                    <td class="mono primary" style="text-align: right; font-weight: 600;">
+                        Rs. {{ "{:,.2f}".format(c.monthly_billing_rate or c.rate_per_guard or 0) }}
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="count-tag" style="background: var(--bg-elevated); color: var(--accent-amber); font-weight: 600;">
+                            {{ guard_counts.get(c.id, 0) }} Guard(s)
+                        </span>
+                    </td>
+                    <td>
+                        {% if c.status == 'Active' %}
+                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Active</span>
+                        {% elif c.status == 'Terminated' %}
+                            <span class="status-pill status-pill--red"><span class="led led--red"></span> Terminated</span>
+                        {% else %}
+                            <span class="status-pill status-pill--slate">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <a href="{{ url_for('clients.edit', client_id=c.id) }}" class="action-btn" title="Edit Client Contract">
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="9">
+                        No client accounts found matching the selected filter.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

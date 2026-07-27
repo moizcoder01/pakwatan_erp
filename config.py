@@ -15,7 +15,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
+if SUPABASE_URL:
+    SUPABASE_URL = SUPABASE_URL.strip().rstrip("/")
+    if SUPABASE_URL.endswith("/rest/v1"):
+        SUPABASE_URL = SUPABASE_URL[:-8].rstrip("/")
+
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+if SUPABASE_KEY:
+    SUPABASE_KEY = SUPABASE_KEY.strip()
+
 SECRET_KEY = os.getenv("SECRET_KEY", "pakwatan_secret_key_12345")
 SESSION_LIFETIME_MINUTES = int(os.getenv("SESSION_LIFETIME_MINUTES", "60"))
 # Fail fast with a clear message instead of a confusing crash deep inside supabase-py.

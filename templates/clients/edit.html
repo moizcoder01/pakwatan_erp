@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Client — {{ client.client_name }} — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1>Edit Client Account</h1>
+        <p>Update corporate information, contract dates, billing rate, or account status.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('clients.index') }}" class="logout-link" style="text-decoration: none;">
+            ← Back to Client Directory
+        </a>
+    </div>
+</div>
+
+<div class="panel" style="max-width: 840px; margin: 0 auto;">
+    <div class="panel__header">
+        <h3>Edit: {{ client.client_name }}</h3>
+        <span class="count-tag">{{ client.status }} Account</span>
+    </div>
+
+    <form action="{{ url_for('clients.edit', client_id=client.id) }}" method="post" style="padding: 24px 28px;">
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;">
+            
+            <!-- Client / Site Name -->
+            <div class="field">
+                <label for="client_name">Client / Site Name <span style="color: var(--accent-red);">*</span></label>
+                <input type="text" id="client_name" name="client_name" value="{{ client.client_name }}" required>
+            </div>
+
+            <!-- Corporate Company Name -->
+            <div class="field">
+                <label for="company_name">Corporate Company Name</label>
+                <input type="text" id="company_name" name="company_name" value="{{ client.company_name or '' }}">
+            </div>
+
+            <!-- Primary Contact Person -->
+            <div class="field">
+                <label for="contact_person">Contact Person</label>
+                <input type="text" id="contact_person" name="contact_person" value="{{ client.contact_person or '' }}">
+            </div>
+
+            <!-- Phone Number -->
+            <div class="field">
+                <label for="phone">Phone Number <span style="color: var(--accent-red);">*</span></label>
+                <input type="text" id="phone" name="phone" value="{{ client.phone or '' }}" required>
+            </div>
+
+            <!-- Email Address -->
+            <div class="field">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" value="{{ client.email or '' }}">
+            </div>
+
+            <!-- Monthly Billing Rate -->
+            <div class="field">
+                <label for="monthly_billing_rate">Monthly Billing Rate (PKR)</label>
+                <input type="number" step="1000" id="monthly_billing_rate" name="monthly_billing_rate" value="{{ client.monthly_billing_rate or client.rate_per_guard or 0 }}">
+            </div>
+
+            <!-- Contract Start Date -->
+            <div class="field">
+                <label for="contract_start">Contract Start Date</label>
+                <input type="date" id="contract_start" name="contract_start" value="{{ client.contract_start or client.contract_start_date or '' }}">
+            </div>
+
+            <!-- Contract End Date -->
+            <div class="field">
+                <label for="contract_end">Contract End Date</label>
+                <input type="date" id="contract_end" name="contract_end" value="{{ client.contract_end or client.contract_end_date or '' }}">
+            </div>
+
+            <!-- Account Status -->
+            <div class="field">
+                <label for="status">Account Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="Active" {% if client.status == 'Active' %}selected{% endif %}>Active</option>
+                    <option value="Inactive" {% if client.status == 'Inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="Terminated" {% if client.status == 'Terminated' %}selected{% endif %}>Terminated</option>
+                </select>
+            </div>
+
+            <!-- Site / Billing Address (Full Width) -->
+            <div class="field" style="grid-column: 1 / -1;">
+                <label for="address">Site Deployment / Billing Address</label>
+                <input type="text" id="address" name="address" value="{{ client.address or '' }}">
+            </div>
+
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; border-top: 1px solid var(--border-hairline); padding-top: 18px;">
+            <a href="{{ url_for('clients.index') }}" class="logout-link" style="text-decoration: none;">Cancel</a>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;">Update Client Details</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

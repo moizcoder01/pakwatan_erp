@@ -21,9 +21,18 @@
             <a class="nav-item {{ 'active' if request.endpoint == 'dashboard.index' }}" href="{{ url_for('dashboard.index') }}">
                 <span class="nav-icon">#</span> Dashboard
             </a>
-            <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">G</span> Guards</span>
+            <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('guards.') }}" href="{{ url_for('guards.index') }}">
+                <span class="nav-icon">G</span> Guards
+            </a>
             <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">A</span> Attendance</span>
-            <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">C</span> Clients</span>
+            <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('clients.') }}" href="{{ url_for('clients.index') }}">
+                <span class="nav-icon">C</span> Clients
+            </a>
+            <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('deployments.') }}" href="{{ url_for('deployments.index') }}">
+                <span class="nav-icon">D</span> Deployments
+            </a>
+
+
 
             <div class="sidebar__section-label">Financials</div>
             <span class="nav-item disabled" title="Coming in Phase 3"><span class="nav-icon">$</span> Advances &amp; Expenses</span>

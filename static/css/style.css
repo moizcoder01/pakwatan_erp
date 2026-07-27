@@ -431,7 +431,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; 
   color: var(--text-muted);
   margin-bottom: 6px;
 }
-.field input {
+.field input, .field select, .form-select {
   width: 100%;
   background: var(--bg-elevated);
   border: 1px solid var(--border-hairline);
@@ -443,7 +443,58 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; 
   outline: none;
   transition: border-color 0.15s ease;
 }
-.field input:focus { border-color: var(--accent-amber); }
+.field input:focus, .field select:focus, .form-select:focus { border-color: var(--accent-amber); }
+.field select option, .form-select option {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+}
+
+/* --- Filter Tabs --- */
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.tab-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.tab-item.active {
+  background: var(--bg-elevated);
+  border-color: var(--accent-amber);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.tab-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  background: var(--bg-base);
+  color: var(--text-muted);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.tab-item.active .tab-badge { color: var(--accent-amber); }
+
+/* --- Action Buttons --- */
+.action-btn {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--accent-amber);
+  background: var(--accent-amber-dim);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: filter 0.15s ease, border-color 0.15s ease;
+}
+.action-btn:hover { filter: brightness(1.15); border-color: var(--accent-amber); }
+
 
 .btn-primary {
   width: 100%;

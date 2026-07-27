@@ -18,6 +18,9 @@ from config import SECRET_KEY, FLASK_DEBUG, FLASK_HOST, FLASK_PORT
 from blueprints.auth import auth_bp, init_session_lifetime
 from blueprints.dashboard import dashboard_bp
 from blueprints.search import search_bp
+from blueprints.guards import guards_bp
+from blueprints.clients import clients_bp
+from blueprints.deployments import deployments_bp
 
 
 def create_app():
@@ -33,6 +36,12 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(search_bp)
+    app.register_blueprint(guards_bp, url_prefix="/guards")
+    app.register_blueprint(clients_bp, url_prefix="/clients")
+    app.register_blueprint(deployments_bp, url_prefix="/deployments")
+
+
+
 
     @app.route("/")
     def root():
