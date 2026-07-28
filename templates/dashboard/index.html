@@ -1,0 +1,715 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<style>
+    .dashboard-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .dashboard-hero,
+    .dashboard-band,
+    .dashboard-chart-card,
+    .dashboard-status-card {
+        background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 88%, transparent), var(--bg-panel));
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-panel);
+    }
+
+    .dashboard-hero {
+        padding: 22px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 18px;
+        flex-wrap: wrap;
+    }
+
+    .dashboard-hero__eyebrow,
+    .dashboard-subtle-label {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+    }
+
+    .dashboard-hero h1 {
+        font-size: 1.7rem;
+        margin: 8px 0 6px;
+    }
+
+    .dashboard-hero p {
+        margin: 0;
+        max-width: 760px;
+        color: var(--text-secondary);
+    }
+
+    .dashboard-hero__meta {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .dashboard-band {
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        overflow-x: auto;
+    }
+
+    .dashboard-band__label {
+        font-family: var(--font-display);
+        font-size: 0.95rem;
+        white-space: nowrap;
+    }
+
+    .alert-chip {
+        min-width: 240px;
+        border: 1px solid var(--border-hairline);
+        border-radius: 999px;
+        padding: 10px 14px;
+        background: var(--bg-elevated);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .alert-chip--danger {
+        border-color: color-mix(in srgb, var(--accent-red) 50%, var(--border-hairline));
+        background: color-mix(in srgb, var(--accent-red-dim) 50%, var(--bg-elevated));
+    }
+
+    .alert-chip--healthy {
+        border-color: color-mix(in srgb, var(--accent-teal) 40%, var(--border-hairline));
+    }
+
+    .alert-chip__copy strong {
+        display: block;
+        font-size: 0.84rem;
+        color: var(--text-primary);
+    }
+
+    .alert-chip__copy span {
+        display: block;
+        font-size: 0.76rem;
+        color: var(--text-secondary);
+        margin-top: 2px;
+    }
+
+    .dashboard-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+    }
+
+    .dashboard-kpi-card {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        padding: 18px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .dashboard-kpi-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -24px -24px auto;
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--bg-elevated) 85%, transparent);
+        pointer-events: none;
+    }
+
+    .dashboard-kpi-card__top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .dashboard-kpi-card__title {
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+    }
+
+    .dashboard-kpi-card__value {
+        font-family: var(--font-display);
+        font-size: 1.9rem;
+        line-height: 1.05;
+        color: var(--text-primary);
+    }
+
+    .dashboard-kpi-card__context {
+        margin-top: 8px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+
+    .dashboard-chart-grid,
+    .dashboard-status-grid,
+    .dashboard-table-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .dashboard-chart-card,
+    .dashboard-status-card {
+        overflow: hidden;
+    }
+
+    .dashboard-chart-card__body,
+    .dashboard-status-card__body {
+        padding: 18px;
+    }
+
+    .chart-wrap {
+        position: relative;
+        height: 320px;
+    }
+
+    .chart-wrap--donut {
+        height: 300px;
+    }
+
+    .dashboard-status-card__split {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        gap: 18px;
+    }
+
+    .status-meter {
+        display: grid;
+        gap: 12px;
+    }
+
+    .status-meter__row {
+        padding: 14px;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-sm);
+        background: var(--bg-elevated);
+    }
+
+    .status-meter__row strong {
+        display: block;
+        font-size: 1.25rem;
+        font-family: var(--font-display);
+        color: var(--text-primary);
+    }
+
+    .status-meter__row span {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+    }
+
+    .armory-ring {
+        width: 168px;
+        height: 168px;
+        border-radius: 50%;
+        margin: 0 auto;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--border-hairline);
+        background:
+            radial-gradient(circle at center, var(--bg-panel) 0 46%, transparent 47% 100%),
+            conic-gradient(
+                var(--accent-amber) 0deg calc((var(--assigned-share, 0.5)) * 1turn),
+                var(--accent-teal) calc((var(--assigned-share, 0.5)) * 1turn) 1turn
+            );
+    }
+
+    .armory-ring__center {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-hairline);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .armory-ring__center strong {
+        font-family: var(--font-display);
+        font-size: 1.3rem;
+    }
+
+    .armory-ring__center span {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+    }
+
+    .panel__header--dashboard {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--border-hairline);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .panel__header--dashboard p {
+        margin: 3px 0 0;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+
+    .table-panel {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    @media (max-width: 1100px) {
+        .dashboard-chart-grid,
+        .dashboard-status-grid,
+        .dashboard-table-grid,
+        .dashboard-status-card__split {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="dashboard-shell">
+    <section class="dashboard-hero">
+        <div>
+            <div class="dashboard-hero__eyebrow"><span class="led led--teal"></span> Enterprise Command Center</div>
+            <h1>{{ dashboard.hero.title }}</h1>
+            <p>{{ dashboard.hero.subtitle }}</p>
+        </div>
+        <div class="dashboard-hero__meta">
+            <span class="status-pill status-pill--slate">Reporting Period {{ dashboard.hero.period_label }}</span>
+            <span class="status-pill status-pill--amber">Realtime ERP Snapshot</span>
+        </div>
+    </section>
+
+    {% if dashboard.alerts %}
+    <section class="dashboard-band">
+        <div class="dashboard-band__label">Alert Triggers</div>
+        {% for alert in dashboard.alerts %}
+        <div class="alert-chip {{ 'alert-chip--danger' if alert.state == 'danger' else 'alert-chip--healthy' if alert.state == 'healthy' else '' }}">
+            <div class="alert-chip__copy">
+                <strong>{{ alert.title }}</strong>
+                <span>{{ alert.detail }}</span>
+            </div>
+            <span class="status-pill {{ 'status-pill--red' if alert.state == 'danger' else 'status-pill--teal' if alert.state == 'healthy' else 'status-pill--slate' }}">
+                {{ alert.count }}
+            </span>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="dashboard-kpi-grid">
+        {% for kpi in dashboard.kpis %}
+        <article class="dashboard-kpi-card">
+            <div class="dashboard-kpi-card__top">
+                <div>
+                    <div class="dashboard-kpi-card__title">{{ kpi.title }}</div>
+                    <div class="dashboard-kpi-card__value">
+                        {% if kpi.value_currency is defined %}
+                            PKR {{ "{:,.0f}".format(kpi.value_currency) }}
+                        {% else %}
+                            {{ kpi.value }}
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="status-pill {{ 'status-pill--teal' if kpi.tone == 'teal' else 'status-pill--amber' if kpi.tone == 'amber' else 'status-pill--red' if kpi.tone == 'red' else 'status-pill--slate' }}">
+                    {{ kpi.pill }}
+                </span>
+            </div>
+            <div class="dashboard-kpi-card__context">{{ kpi.context }}</div>
+        </article>
+        {% endfor %}
+    </section>
+
+    {% if dashboard.charts %}
+    <section class="dashboard-chart-grid">
+        <article class="dashboard-chart-card">
+            <div class="panel__header--dashboard">
+                <div>
+                    <h3>Expense Distribution</h3>
+                    <p>Payroll and operational cost mix for the current month.</p>
+                </div>
+                <span class="count-tag">Donut</span>
+            </div>
+            <div class="dashboard-chart-card__body">
+                <div class="chart-wrap chart-wrap--donut">
+                    <canvas id="expenseDistributionChart"></canvas>
+                </div>
+            </div>
+        </article>
+
+        <article class="dashboard-chart-card">
+            <div class="panel__header--dashboard">
+                <div>
+                    <h3>Monthly Financial Trend</h3>
+                    <p>Last 6 months invoiced revenue versus expense trajectory.</p>
+                </div>
+                <span class="count-tag">Area Trend</span>
+            </div>
+            <div class="dashboard-chart-card__body">
+                <div class="chart-wrap">
+                    <canvas id="financialTrendChart"></canvas>
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <section class="dashboard-status-grid">
+        <article class="dashboard-status-card">
+            <div class="panel__header--dashboard">
+                <div>
+                    <h3>Armory & Operational Status</h3>
+                    <p>Deployed weapons versus vault inventory readiness.</p>
+                </div>
+                <span class="count-tag">{{ dashboard.armory.total }} tracked</span>
+            </div>
+            {% set assigned_share = (dashboard.armory.assigned / dashboard.armory.total) if dashboard.armory.total else 0 %}
+            <div class="dashboard-status-card__body dashboard-status-card__split">
+                <div class="status-meter">
+                    <div class="status-meter__row">
+                        <div class="dashboard-subtle-label">Deployed Weapons</div>
+                        <strong>{{ dashboard.armory.assigned }}</strong>
+                        <span>Assigned to active guard posts.</span>
+                    </div>
+                    <div class="status-meter__row">
+                        <div class="dashboard-subtle-label">Vault Stock</div>
+                        <strong>{{ dashboard.armory.storage }}</strong>
+                        <span>Available in storage for future deployments.</span>
+                    </div>
+                </div>
+                <div class="armory-ring" style="--assigned-share: {{ assigned_share }};">
+                    <div class="armory-ring__center">
+                        <strong>{{ dashboard.armory.total }}</strong>
+                        <span>Total Weapons</span>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <article class="dashboard-status-card">
+            <div class="panel__header--dashboard">
+                <div>
+                    <h3>Operational Signals</h3>
+                    <p>Priority items surfaced for finance, compliance, and staffing leads.</p>
+                </div>
+                <span class="count-tag">{{ dashboard.alerts|length }} live</span>
+            </div>
+            <div class="dashboard-status-card__body">
+                <div class="status-meter">
+                    {% for alert in dashboard.alerts %}
+                    <div class="status-meter__row">
+                        <span class="status-pill {{ 'status-pill--red' if alert.state == 'danger' else 'status-pill--teal' if alert.state == 'healthy' else 'status-pill--slate' }}">
+                            {{ alert.title }}
+                        </span>
+                        <strong>{{ alert.count }}</strong>
+                        <span>{{ alert.detail }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </article>
+    </section>
+    {% endif %}
+
+    <section class="dashboard-table-grid">
+        <div class="table-panel">
+            <div class="panel__header">
+                <h3>Recent Attendance</h3>
+                <span class="count-tag">{{ dashboard.recent_attendance|length }} entries</span>
+            </div>
+            <table class="ledger">
+                <thead>
+                    <tr><th>Date</th><th>Guard</th><th>Status</th><th>Note</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in dashboard.recent_attendance %}
+                    <tr>
+                        <td class="mono">{{ row.display_date or row.attendance_date or '—' }}</td>
+                        <td class="primary">{{ row.guards.full_name if row.guards else '—' }}</td>
+                        <td>
+                            {% if row.status in ('On Duty', 'Present') %}
+                                <span class="status-pill status-pill--teal">{{ row.status }}</span>
+                            {% elif row.status in ('On Leave', 'Leave') %}
+                                <span class="status-pill status-pill--amber">{{ 'Leave' if row.status == 'Leave' else row.status }}</span>
+                            {% else %}
+                                <span class="status-pill status-pill--red">{{ row.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.reason_for_absence or '—' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr class="empty-row"><td colspan="4">No attendance records yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-panel">
+            <div class="panel__header">
+                <h3>Recent Complaints</h3>
+                <span class="count-tag">{{ dashboard.recent_complaints|length }} entries</span>
+            </div>
+            <table class="ledger">
+                <thead>
+                    <tr><th>Logged</th><th>Client</th><th>Details</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in dashboard.recent_complaints %}
+                    <tr>
+                        <td class="mono">{{ row.logged_at[:10] if row.logged_at else '—' }}</td>
+                        <td class="primary">{{ row.clients.client_name if row.clients else '—' }}</td>
+                        <td>{{ (row.complaint_details or '—')[:68] }}{{ '…' if row.complaint_details and row.complaint_details|length > 68 }}</td>
+                        <td>
+                            {% if row.resolution_status == 'Resolved' %}
+                                <span class="status-pill status-pill--teal">Resolved</span>
+                            {% else %}
+                                <span class="status-pill status-pill--red">Unresolved</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr class="empty-row"><td colspan="4">No complaints logged yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {% if dashboard.recent_advances is not none %}
+    <section class="table-panel">
+        <div class="panel__header">
+            <h3>Recent Salary Advances</h3>
+            <span class="count-tag">{{ dashboard.recent_advances|length }} entries</span>
+        </div>
+        <table class="ledger">
+            <thead>
+                <tr><th>Date</th><th>Guard</th><th>Amount</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for row in dashboard.recent_advances %}
+                <tr>
+                    <td class="mono">{{ row.advance_date or '—' }}</td>
+                    <td class="primary">{{ row.guards.full_name if row.guards else '—' }}</td>
+                    <td class="mono">PKR {{ "{:,.0f}".format(row.amount or 0) }}</td>
+                    <td>
+                        {% if row.is_deducted %}
+                            <span class="status-pill status-pill--slate">Deducted</span>
+                        {% else %}
+                            <span class="status-pill status-pill--amber">Pending</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-row"><td colspan="4">No salary advances logged yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if dashboard.charts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    (function () {
+        var chartState = { expense: null, trend: null };
+        var chartPayload = {{ dashboard.charts|tojson }};
+
+        function cssVar(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        function moneyCompact(value) {
+            return 'PKR ' + new Intl.NumberFormat('en-PK', {
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(value || 0);
+        }
+
+        function buildTheme() {
+            return {
+                text: cssVar('--text-secondary'),
+                textStrong: cssVar('--text-primary'),
+                border: cssVar('--border-hairline'),
+                panel: cssVar('--bg-panel'),
+                amber: cssVar('--accent-amber'),
+                amberDim: 'rgba(232, 163, 61, 0.16)',
+                teal: cssVar('--accent-teal'),
+                tealDim: 'rgba(79, 182, 166, 0.18)',
+                red: cssVar('--accent-red'),
+                slate: cssVar('--accent-slate')
+            };
+        }
+
+        function destroyCharts() {
+            if (chartState.expense) {
+                chartState.expense.destroy();
+                chartState.expense = null;
+            }
+            if (chartState.trend) {
+                chartState.trend.destroy();
+                chartState.trend = null;
+            }
+        }
+
+        function renderCharts() {
+            if (!window.Chart) return;
+
+            destroyCharts();
+            var theme = buildTheme();
+            Chart.defaults.color = theme.text;
+            Chart.defaults.borderColor = theme.border;
+            Chart.defaults.font.family = 'Inter, Segoe UI, sans-serif';
+
+            var expenseCanvas = document.getElementById('expenseDistributionChart');
+            var trendCanvas = document.getElementById('financialTrendChart');
+            if (!expenseCanvas || !trendCanvas) return;
+
+            chartState.expense = new Chart(expenseCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: chartPayload.expense_distribution.labels,
+                    datasets: [{
+                        data: chartPayload.expense_distribution.values,
+                        backgroundColor: [
+                            theme.teal,
+                            theme.amber,
+                            theme.slate,
+                            '#8f6bff',
+                            theme.red
+                        ],
+                        borderColor: theme.panel,
+                        borderWidth: 4,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '68%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                padding: 18
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return context.label + ': ' + moneyCompact(context.raw);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            chartState.trend = new Chart(trendCanvas, {
+                type: 'line',
+                data: {
+                    labels: chartPayload.financial_trend.labels,
+                    datasets: [
+                        {
+                            label: 'Revenue',
+                            data: chartPayload.financial_trend.revenue,
+                            borderColor: theme.teal,
+                            backgroundColor: theme.tealDim,
+                            fill: true,
+                            tension: 0.38,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        },
+                        {
+                            label: 'Expense',
+                            data: chartPayload.financial_trend.expense,
+                            borderColor: theme.amber,
+                            backgroundColor: theme.amberDim,
+                            fill: true,
+                            tension: 0.38,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return context.dataset.label + ': ' + moneyCompact(context.raw);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function (value) {
+                                    return moneyCompact(value);
+                                }
+                            },
+                            grid: {
+                                color: theme.border
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        renderCharts();
+
+        var observer = new MutationObserver(function (mutations) {
+            for (var i = 0; i < mutations.length; i += 1) {
+                if (mutations[i].attributeName === 'data-theme') {
+                    renderCharts();
+                    break;
+                }
+            }
+        });
+
+        observer.observe(document.documentElement, { attributes: true });
+    })();
+</script>
+{% endif %}
+{% endblock %}

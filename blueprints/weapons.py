@@ -4,15 +4,52 @@ Routes: armory overview, register weapon, assign/unassign to guard,
 procurement (CapEx) log.
 """
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from datetime import date, timedelta
+
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+
+from decorators import login_required
 from supabase_client import get_session_client
-from decorators import login_required  # Ya jo decorator chal raha hai
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 
 weapons_bp = Blueprint("weapons", __name__, url_prefix="/weapons")
 
 VALID_STATUSES = ("In Storage", "Assigned", "Under Repair", "Decommissioned")
 WEAPON_TYPES = ("9mm Pistol", "12-Gauge Shotgun", "Rifle", "Other")
+
+
+def _parse_iso_date(raw_value):
+    if not raw_value:
+        return None
+    try:
+        return date.fromisoformat(str(raw_value)[:10])
+    except ValueError:
+        return None
+
+
+def _license_expiry_meta(raw_expiry):
+    expiry = _parse_iso_date(raw_expiry)
+    if not expiry:
+        return {"label": "—", "state": "slate", "note": "Not recorded"}
+
+    today = date.today()
+    if expiry < today:
+        return {"label": expiry.isoformat(), "state": "red", "note": "Expired"}
+    if expiry <= today + timedelta(days=30):
+        return {"label": expiry.isoformat(), "state": "amber", "note": "Expiring soon"}
+    return {"label": expiry.isoformat(), "state": "teal", "note": "Valid"}
+
+
+def _decorate_weapon_expiry(weapon):
+    enriched = dict(weapon)
+    meta = _license_expiry_meta(weapon.get("license_expiry"))
+    enriched.update(
+        {
+            "license_expiry_label": meta["label"],
+            "license_expiry_state": meta["state"],
+            "license_expiry_note": meta["note"],
+        }
+    )
+    return enriched
 
 # =============================================================================
 # ARMORY OVERVIEW
@@ -31,7 +68,7 @@ def index():
         query = query.eq("status", status_filter)
 
     try:
-        weapons = query.execute().data or []
+        weapons = [_decorate_weapon_expiry(row) for row in (query.execute().data or [])]
         all_weapons = supabase.table("weapons").select("status").execute().data or []
     except Exception as err:
         flash(f"Error loading armory records: {err}", "danger")
@@ -50,7 +87,7 @@ def index():
     )
 def _weapon_lookup_select():
     return (
-        "id, weapon_type, serial_number, license_number, city, storage_address, "
+        "id, weapon_type, serial_number, license_number, license_expiry, city, storage_address, "
         "status, assigned_guard_id, created_at, guards(id, full_name, guard_id, status)"
     )
 
@@ -89,6 +126,10 @@ def lookup():
         pass
 
     weapon["last_purchase"] = last_purchase
+    meta = _license_expiry_meta(weapon.get("license_expiry"))
+    weapon["license_expiry_label"] = meta["label"]
+    weapon["license_expiry_state"] = meta["state"]
+    weapon["license_expiry_note"] = meta["note"]
     return jsonify({"success": True, "data": weapon})
 
 # =============================================================================
@@ -102,11 +143,16 @@ def add():
         weapon_type = request.form.get("weapon_type", "").strip()
         serial_number = request.form.get("serial_number", "").strip()
         license_number = request.form.get("license_number", "").strip()
+        license_expiry = request.form.get("license_expiry", "").strip()
         city = request.form.get("city", "").strip()
         storage_address = request.form.get("storage_address", "").strip()
 
-        if not weapon_type or not serial_number or not license_number:
-            flash("Weapon type, serial number, and license number are required.", "danger")
+        if not weapon_type or not serial_number or not license_number or not license_expiry:
+            flash("Weapon type, serial number, license number, and license expiry are required.", "danger")
+            return render_template("weapons/add.html", form=request.form, weapon_types=WEAPON_TYPES)
+
+        if not _parse_iso_date(license_expiry):
+            flash("Please enter a valid license expiry date.", "danger")
             return render_template("weapons/add.html", form=request.form, weapon_types=WEAPON_TYPES)
 
         try:
@@ -120,6 +166,7 @@ def add():
                 "weapon_type": weapon_type,
                 "serial_number": serial_number,
                 "license_number": license_number,
+                "license_expiry": license_expiry,
                 "city": city or None,
                 "storage_address": storage_address or None,
                 "status": "In Storage",
@@ -129,7 +176,14 @@ def add():
             return redirect(url_for("weapons.index"))
 
         except Exception as err:
-            flash(f"Error registering weapon: {err}", "danger")
+            err_msg = str(err)
+            if "license_expiry" in err_msg or "PGRST204" in err_msg or "schema cache" in err_msg:
+                flash(
+                    "License expiry column missing. Run schema_chunk9.sql in your Supabase SQL Editor, then try again.",
+                    "danger",
+                )
+            else:
+                flash(f"Error registering weapon: {err_msg}", "danger")
             return render_template("weapons/add.html", form=request.form, weapon_types=WEAPON_TYPES)
 
     return render_template("weapons/add.html", form={}, weapon_types=WEAPON_TYPES)
@@ -149,7 +203,7 @@ def assign(weapon_id):
         flash("Weapon not found.", "danger")
         return redirect(url_for("weapons.index"))
 
-    weapon = weapon_res.data[0]
+    weapon = _decorate_weapon_expiry(weapon_res.data[0])
 
     if request.method == "POST":
         guard_id = request.form.get("guard_id") or None

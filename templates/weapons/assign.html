@@ -20,6 +20,17 @@
                     <tr><td style="color: var(--text-muted); width: 40%;">Type</td><td class="primary">{{ weapon.weapon_type }}</td></tr>
                     <tr><td style="color: var(--text-muted);">Serial No.</td><td class="mono">{{ weapon.serial_number }}</td></tr>
                     <tr><td style="color: var(--text-muted);">License No.</td><td class="mono">{{ weapon.license_number }}</td></tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">License Expiry</td>
+                        <td>
+                            <span class="status-pill status-pill--{{ weapon.license_expiry_state }}">
+                                {{ weapon.license_expiry_label }}
+                            </span>
+                            <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">
+                                {{ weapon.license_expiry_note }}
+                            </div>
+                        </td>
+                    </tr>
                     <tr><td style="color: var(--text-muted);">City</td><td>{{ weapon.city or '—' }}</td></tr>
                     <tr><td style="color: var(--text-muted);">Storage</td><td>{{ weapon.storage_address or '—' }}</td></tr>
                     <tr>

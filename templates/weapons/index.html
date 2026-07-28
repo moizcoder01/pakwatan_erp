@@ -72,6 +72,7 @@
                     <th>Weapon Type</th>
                     <th>Serial No.</th>
                     <th>License No.</th>
+                    <th>License Expiry</th>
                     <th>City</th>
                     <th>Storage / Deployment</th>
                     <th>Assigned Guard</th>
@@ -85,6 +86,14 @@
                     <td class="primary">{{ w.weapon_type }}</td>
                     <td class="mono">{{ w.serial_number }}</td>
                     <td class="mono">{{ w.license_number }}</td>
+                    <td>
+                        <span class="status-pill status-pill--{{ w.license_expiry_state }}">
+                            {{ w.license_expiry_label }}
+                        </span>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
+                            {{ w.license_expiry_note }}
+                        </div>
+                    </td>
                     <td>{{ w.city or '—' }}</td>
                     <td>{{ w.storage_address or '—' }}</td>
                     <td>
@@ -115,7 +124,7 @@
                 </tr>
                 {% else %}
                 <tr class="empty-row">
-                    <td colspan="8">
+                    <td colspan="9">
                         No weapons found matching the selected filter.
                     </td>
                 </tr>
@@ -150,6 +159,14 @@ function renderWeaponInfoCard(w) {
         ? 'Rs. ' + Number(purchase.purchase_cost).toLocaleString() + ' · ' + purchase.vendor_name + ' · ' + purchase.purchase_date
         : 'No purchase record on file';
 
+    var expiryPill = w.license_expiry_state === 'red'
+        ? '<span class="status-pill status-pill--red">' + (w.license_expiry_label || '—') + '</span>'
+        : w.license_expiry_state === 'amber'
+        ? '<span class="status-pill status-pill--amber">' + (w.license_expiry_label || '—') + '</span>'
+        : w.license_expiry_state === 'teal'
+        ? '<span class="status-pill status-pill--teal">' + (w.license_expiry_label || '—') + '</span>'
+        : '<span class="status-pill status-pill--slate">' + (w.license_expiry_label || '—') + '</span>';
+
     return (
         '<div class="info-card">' +
             '<div class="info-card__header">' +
@@ -167,6 +184,7 @@ function renderWeaponInfoCard(w) {
             '</div>' +
             '<div class="info-card__grid">' +
                 '<div class="info-card__field"><div class="info-card__label">License Number</div><div class="info-card__value mono">' + (w.license_number || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">License Expiry</div><div class="info-card__value">' + expiryPill + '<div style="font-size:0.76rem;color:var(--text-muted);margin-top:4px;">' + (w.license_expiry_note || '') + '</div></div></div>' +
                 '<div class="info-card__field"><div class="info-card__label">City</div><div class="info-card__value">' + (w.city || '—') + '</div></div>' +
                 '<div class="info-card__field"><div class="info-card__label">Storage / Deployment</div><div class="info-card__value">' + (w.storage_address || '—') + '</div></div>' +
                 '<div class="info-card__field"><div class="info-card__label">Assigned Guard</div><div class="info-card__value">' + guardValue + '</div></div>' +

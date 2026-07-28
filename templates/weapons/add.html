@@ -37,6 +37,12 @@
             </div>
 
             <div class="field">
+                <label for="license_expiry">License Expiry Date</label>
+                <input type="date" id="license_expiry" name="license_expiry"
+                       value="{{ form.get('license_expiry', '') }}" required>
+            </div>
+
+            <div class="field">
                 <label for="city">City</label>
                 <input type="text" id="city" name="city" value="{{ form.get('city', '') }}">
             </div>
