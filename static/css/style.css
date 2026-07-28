@@ -480,8 +480,8 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; 
   margin-bottom: 20px;
 }
 .login-card__logo {
-  width: 88px;
-  height: 88px;
+  width: 175px;
+  height: 100px;
   object-fit: contain;
   border-radius: var(--radius-md);
 }
