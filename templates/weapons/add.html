@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Register Weapon — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Register New Weapon</h1>
+    <p>Add a licensed tactical asset into the armory inventory.</p>
+</div>
+
+<div class="panel" style="max-width: 620px;">
+    <div class="panel__header">
+        <h3>Weapon Details</h3>
+    </div>
+    <div style="padding: 20px 18px;">
+        <form method="POST">
+            <div class="field">
+                <label for="weapon_type">Weapon Type</label>
+                <select id="weapon_type" name="weapon_type" required>
+                    <option value="" disabled {{ 'selected' if not form.get('weapon_type') }}>Select type...</option>
+                    {% for t in weapon_types %}
+                        <option value="{{ t }}" {{ 'selected' if form.get('weapon_type') == t }}>{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="serial_number">Serial Number</label>
+                <input type="text" id="serial_number" name="serial_number"
+                       value="{{ form.get('serial_number', '') }}" placeholder="PWS-WPN-0006" required>
+            </div>
+
+            <div class="field">
+                <label for="license_number">License Number</label>
+                <input type="text" id="license_number" name="license_number"
+                       value="{{ form.get('license_number', '') }}" placeholder="ARM-LIC-88236" required>
+            </div>
+
+            <div class="field">
+                <label for="city">City</label>
+                <input type="text" id="city" name="city" value="{{ form.get('city', '') }}">
+            </div>
+
+            <div class="field">
+                <label for="storage_address">Storage / Deployment Address</label>
+                <input type="text" id="storage_address" name="storage_address" value="{{ form.get('storage_address', '') }}">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px;">
+                <a href="{{ url_for('weapons.index') }}"
+                   style="display: inline-flex; align-items: center; padding: 10px 16px; font-size: 0.85rem; color: var(--text-muted); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);">
+                    Cancel
+                </a>
+                <button type="submit" class="btn-primary" style="width: auto; padding: 10px 20px;">Save Weapon</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

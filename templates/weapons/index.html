@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Weapons &amp; Armory Inventory — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1>Weapons &amp; Armory Inventory</h1>
+        <p>Track licensed tactical assets, storage locations, and active guard assignments.</p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <a href="{{ url_for('weapons.purchases') }}" class="action-btn" style="padding: 10px 18px; font-size: 0.82rem;">
+            Procurement Log
+        </a>
+        <a href="{{ url_for('weapons.add') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px; width: auto;">
+            <span>+</span> Register Weapon
+        </a>
+    </div>
+</div>
+
+<!-- Status Filter Tabs -->
+<div class="filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
+    <a href="{{ url_for('weapons.index') }}"
+       class="tab-item {{ 'active' if not status_filter }}">
+        All Assets <span class="tab-badge">{{ counts.All }}</span>
+    </a>
+    <a href="{{ url_for('weapons.index', status='Assigned') }}"
+       class="tab-item {{ 'active' if status_filter == 'Assigned' }}">
+        <span class="led led--teal"></span> Assigned <span class="tab-badge">{{ counts.get('Assigned', 0) }}</span>
+    </a>
+    <a href="{{ url_for('weapons.index', status='In Storage') }}"
+       class="tab-item {{ 'active' if status_filter == 'In Storage' }}">
+        <span class="led led--slate"></span> In Storage <span class="tab-badge">{{ counts.get('In Storage', 0) }}</span>
+    </a>
+    <a href="{{ url_for('weapons.index', status='Under Repair') }}"
+       class="tab-item {{ 'active' if status_filter == 'Under Repair' }}">
+        <span class="led led--amber"></span> Under Repair <span class="tab-badge">{{ counts.get('Under Repair', 0) }}</span>
+    </a>
+    <a href="{{ url_for('weapons.index', status='Decommissioned') }}"
+       class="tab-item {{ 'active' if status_filter == 'Decommissioned' }}">
+        <span class="led led--red"></span> Decommissioned <span class="tab-badge">{{ counts.get('Decommissioned', 0) }}</span>
+    </a>
+</div>
+
+<!-- Armory Ledger Table -->
+<div class="panel">
+    <div class="panel__header">
+        <h3>
+            {% if status_filter %}
+                {{ status_filter }} Assets
+            {% else %}
+                All Registered Weapons &amp; Assets
+            {% endif %}
+        </h3>
+        <span class="count-tag">{{ weapons|length }} Record(s)</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr>
+                    <th>Weapon Type</th>
+                    <th>Serial No.</th>
+                    <th>License No.</th>
+                    <th>City</th>
+                    <th>Storage / Deployment</th>
+                    <th>Assigned Guard</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for w in weapons %}
+                <tr>
+                    <td class="primary">{{ w.weapon_type }}</td>
+                    <td class="mono">{{ w.serial_number }}</td>
+                    <td class="mono">{{ w.license_number }}</td>
+                    <td>{{ w.city or '—' }}</td>
+                    <td>{{ w.storage_address or '—' }}</td>
+                    <td>
+                        {% if w.guards %}
+                            <span class="primary">{{ w.guards.full_name }}</span>
+                        {% else %}
+                            <span style="color: var(--text-muted);">Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if w.status == 'Assigned' %}
+                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Assigned</span>
+                        {% elif w.status == 'In Storage' %}
+                            <span class="status-pill status-pill--slate">In Storage</span>
+                        {% elif w.status == 'Under Repair' %}
+                            <span class="status-pill status-pill--amber"><span class="led led--amber"></span> Under Repair</span>
+                        {% elif w.status == 'Decommissioned' %}
+                            <span class="status-pill status-pill--red"><span class="led led--red"></span> Decommissioned</span>
+                        {% else %}
+                            <span class="status-pill status-pill--slate">{{ w.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <a href="{{ url_for('weapons.assign', weapon_id=w.id) }}" class="action-btn" title="Assign / Unassign Weapon">
+                            Assign
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="8">
+                        No weapons found matching the selected filter.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

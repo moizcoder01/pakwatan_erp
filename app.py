@@ -23,6 +23,9 @@ from blueprints.clients import clients_bp
 from blueprints.deployments import deployments_bp
 from blueprints.payroll import payroll_bp
 from blueprints.finance import finance_bp
+from blueprints.weapons import weapons_bp
+from blueprints.complaints import complaints_bp
+from blueprints.roles import roles_bp
 
 
 def create_app():
@@ -43,6 +46,9 @@ def create_app():
     app.register_blueprint(deployments_bp, url_prefix="/deployments")
     app.register_blueprint(payroll_bp, url_prefix="/payroll")
     app.register_blueprint(finance_bp, url_prefix="/finance")
+    app.register_blueprint(weapons_bp)
+    app.register_blueprint(complaints_bp, url_prefix="/complaints")
+    app.register_blueprint(roles_bp, url_prefix="/roles")
 
 
 

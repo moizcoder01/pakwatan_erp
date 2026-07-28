@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}User Roles &amp; Access — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>User Roles &amp; Access</h1>
+    <p>System accounts currently provisioned for the ERP console.</p>
+</div>
+
+<div class="panel">
+    <div class="panel__header">
+        <h3>Active System Users</h3>
+        <span class="count-tag">{{ profiles|length }} Account(s)</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Client Scope</th>
+                    <th>Status</th>
+                    <th>User ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in profiles %}
+                <tr>
+                    <td class="primary" style="display: flex; align-items: center; gap: 10px;">
+                        <span class="badge-ring badge-ring--{{ p.get('role', 'Ops') }}" style="width: 26px; height: 26px; font-size: 0.65rem;">
+                            {{ (p.get('full_name') or '?')[:2].upper() }}
+                        </span>
+                        {{ p.get('full_name') or '—' }}
+                    </td>
+                    <td>
+                        <span class="status-pill status-pill--amber">{{ p.get('role') or '—' }}</span>
+                    </td>
+                    <td>
+                        {% if p.get('client_id') %}
+                            {{ client_names.get(p.get('client_id'), 'Unknown Client') }}
+                        {% else %}
+                            <span style="color: var(--text-muted);">Org-wide</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.get('is_active', True) %}
+                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Active</span>
+                        {% else %}
+                            <span class="status-pill status-pill--slate">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="mono" style="font-size: 0.78rem; color: var(--text-muted);">{{ p.get('id') }}</td>
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="5">No user profiles found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

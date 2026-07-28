@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Log New Complaint — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1>Log New Client Complaint</h1>
+        <p>Record a client-reported issue for tracking and resolution.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('complaints.index') }}" class="logout-link" style="text-decoration: none;">
+            ← Back to Complaints Desk
+        </a>
+    </div>
+</div>
+
+<div class="panel" style="max-width: 720px; margin: 0 auto;">
+    <div class="panel__header">
+        <h3>Complaint Ticket Form</h3>
+        <span class="count-tag">New Ticket</span>
+    </div>
+
+    <form action="{{ url_for('complaints.add') }}" method="post" style="padding: 24px 28px;">
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;">
+
+            <div class="field">
+                <label for="client_id">Client <span style="color: var(--accent-red);">*</span></label>
+                <select id="client_id" name="client_id" required>
+                    <option value="" disabled {{ 'selected' if not form_data.get('client_id') }}>Select client...</option>
+                    {% for cl in clients %}
+                        <option value="{{ cl.id }}" {{ 'selected' if form_data.get('client_id') == cl.id }}>{{ cl.client_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="guard_id">Related Guard <span style="color: var(--text-muted); font-weight: normal;">(optional)</span></label>
+                <select id="guard_id" name="guard_id">
+                    <option value="">General / Not guard-specific</option>
+                    {% for g in guards %}
+                        <option value="{{ g.id }}" {{ 'selected' if form_data.get('guard_id') == g.id }}>{{ g.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field" style="grid-column: 1 / -1;">
+                <label for="complaint_details">Complaint Details <span style="color: var(--accent-red);">*</span></label>
+                <textarea id="complaint_details" name="complaint_details" rows="5" required
+                    placeholder="Describe the issue reported by the client..."
+                    style="width: 100%; background: var(--bg-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text-primary); font-family: var(--font-body); font-size: 0.9rem; outline: none; resize: vertical;">{{ form_data.get('complaint_details', '') }}</textarea>
+            </div>
+
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; border-top: 1px solid var(--border-hairline); padding-top: 18px;">
+            <a href="{{ url_for('complaints.index') }}" class="logout-link" style="text-decoration: none;">Cancel</a>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;">Save &amp; Log Complaint</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

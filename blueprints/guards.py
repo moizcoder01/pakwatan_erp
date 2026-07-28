@@ -55,9 +55,15 @@ def index():
     client = get_session_client()
     status_filter = request.args.get("status", "").strip()
 
-    # Query guards with assigned client info
+    # Query guards with assigned client info + assigned weapon info
     query = client.table("guards").select(
-        "id, guard_id, full_name, cnic, phone, gender, emergency_contact, address, blood_group, verification_status, status, assigned_client_id, created_at, clients(client_name)"
+        "id, guard_id, full_name, cnic, phone, gender, emergency_contact, address, "
+        "blood_group, verification_status, status, assigned_client_id, created_at, "
+        "clients(client_name), weapons(id, weapon_type, serial_number)"
+        # If Supabase raises an "ambiguous relationship" / "more than one relationship
+        # was found" error, replace the weapons(...) segment above with the explicit
+        # FK hint instead:
+        # "weapons!weapons_assigned_guard_id_fkey(id, weapon_type, serial_number)"
     ).order("created_at", desc=True)
 
     if status_filter:
@@ -69,6 +75,13 @@ def index():
     except Exception as e:
         flash(f"Error fetching guards data: {str(e)}", "error")
         guards = []
+
+    # weapons(...) comes back as a LIST on this side (reverse FK: weapons ->
+    # guards), even though a guard only ever has 0 or 1 assigned weapon in
+    # practice. Flatten it here so the template doesn't need list-vs-none logic.
+    for g in guards:
+        weapon_rows = g.get("weapons") or []
+        g["assigned_weapon"] = weapon_rows[0] if weapon_rows else None
 
     # Get status summary counts for tab badges
     counts = {

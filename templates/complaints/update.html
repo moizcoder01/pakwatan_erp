@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Update Complaint — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1>Update Complaint Status</h1>
+        <p>Review the ticket and update its resolution status.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('complaints.index') }}" class="logout-link" style="text-decoration: none;">
+            ← Back to Complaints Desk
+        </a>
+    </div>
+</div>
+
+<div class="panel-grid">
+    <!-- Ticket Details (read-only) -->
+    <div class="panel">
+        <div class="panel__header">
+            <h3>Ticket Details</h3>
+        </div>
+        <div style="padding: 18px;">
+            <table class="ledger" style="width: 100%;">
+                <tbody>
+                    <tr>
+                        <td style="color: var(--text-muted); width: 40%;">Client</td>
+                        <td class="primary">{% if complaint.clients %}{{ complaint.clients.client_name }}{% else %}—{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Related Guard</td>
+                        <td>{% if complaint.guards %}{{ complaint.guards.full_name }}{% else %}<span style="color: var(--text-muted);">General</span>{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Logged At</td>
+                        <td class="mono">{{ complaint.logged_at[:16].replace('T', ' ') if complaint.logged_at else '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted); border-bottom: none;">Details</td>
+                        <td style="border-bottom: none;">{{ complaint.complaint_details }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Resolution Form -->
+    <div class="panel">
+        <div class="panel__header">
+            <h3>Resolution</h3>
+        </div>
+        <div style="padding: 20px 18px;">
+            <form method="POST">
+                <div class="field">
+                    <label for="resolution_status">Status</label>
+                    <select id="resolution_status" name="resolution_status">
+                        <option value="Unresolved" {{ 'selected' if complaint.resolution_status == 'Unresolved' }}>Unresolved</option>
+                        <option value="Resolved" {{ 'selected' if complaint.resolution_status == 'Resolved' }}>Resolved</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="resolution_notes">Resolution Notes</label>
+                    <textarea id="resolution_notes" name="resolution_notes" rows="4"
+                        placeholder="How was this resolved?"
+                        style="width: 100%; background: var(--bg-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text-primary); font-family: var(--font-body); font-size: 0.9rem; outline: none; resize: vertical;">{{ complaint.resolution_notes or '' }}</textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px;">
+                    <a href="{{ url_for('complaints.index') }}" class="logout-link" style="text-decoration: none;">Cancel</a>
+                    <button type="submit" class="btn-primary" style="width: auto; padding: 10px 20px;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

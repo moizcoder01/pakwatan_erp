@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Client Complaints — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1>Client Complaints &amp; Resolution Desk</h1>
+        <p>Track client-reported issues, assign resolution notes, and monitor open tickets.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('complaints.add') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px; width: auto;">
+            <span>+</span> Log New Complaint
+        </a>
+    </div>
+</div>
+
+<!-- Status Filter Tabs -->
+<div class="filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
+    <a href="{{ url_for('complaints.index') }}"
+       class="tab-item {{ 'active' if not status_filter }}">
+        All Tickets <span class="tab-badge">{{ counts.All }}</span>
+    </a>
+    <a href="{{ url_for('complaints.index', status='Unresolved') }}"
+       class="tab-item {{ 'active' if status_filter == 'Unresolved' }}">
+        <span class="led led--red"></span> Unresolved <span class="tab-badge">{{ counts.Unresolved }}</span>
+    </a>
+    <a href="{{ url_for('complaints.index', status='Resolved') }}"
+       class="tab-item {{ 'active' if status_filter == 'Resolved' }}">
+        <span class="led led--teal"></span> Resolved <span class="tab-badge">{{ counts.Resolved }}</span>
+    </a>
+</div>
+
+<!-- Complaints Ledger Table -->
+<div class="panel">
+    <div class="panel__header">
+        <h3>
+            {% if status_filter %}
+                {{ status_filter }} Tickets
+            {% else %}
+                All Logged Complaints
+            {% endif %}
+        </h3>
+        <span class="count-tag">{{ complaints|length }} Record(s)</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Related Guard</th>
+                    <th>Complaint Details</th>
+                    <th>Logged At</th>
+                    <th>Status</th>
+                    <th>Resolution Notes</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in complaints %}
+                <tr>
+                    <td class="primary">
+                        {% if c.clients %}{{ c.clients.client_name }}{% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if c.guards %}
+                            {{ c.guards.full_name }}
+                        {% else %}
+                            <span style="color: var(--text-muted);">General</span>
+                        {% endif %}
+                    </td>
+                    <td style="max-width: 320px;">{{ c.complaint_details }}</td>
+                    <td class="mono" style="font-size: 0.8rem;">
+                        {{ c.logged_at[:16].replace('T', ' ') if c.logged_at else '—' }}
+                    </td>
+                    <td>
+                        {% if c.resolution_status == 'Resolved' %}
+                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Resolved</span>
+                        {% else %}
+                            <span class="status-pill status-pill--red"><span class="led led--red"></span> Unresolved</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ c.resolution_notes or '—' }}</td>
+                    <td style="text-align: right;">
+                        <a href="{{ url_for('complaints.update', complaint_id=c.id) }}" class="action-btn" title="Update Complaint Status">
+                            Update
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="7">
+                        No complaints found matching the selected filter.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

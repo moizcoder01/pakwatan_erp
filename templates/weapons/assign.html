@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Weapon — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Assign / Unassign Weapon</h1>
+    <p>{{ weapon.weapon_type }} &middot; Serial <span class="mono">{{ weapon.serial_number }}</span></p>
+</div>
+
+<div class="panel-grid">
+    <!-- Asset Details -->
+    <div class="panel">
+        <div class="panel__header">
+            <h3>Asset Details</h3>
+        </div>
+        <div style="padding: 18px;">
+            <table class="ledger" style="width: 100%;">
+                <tbody>
+                    <tr><td style="color: var(--text-muted); width: 40%;">Type</td><td class="primary">{{ weapon.weapon_type }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">Serial No.</td><td class="mono">{{ weapon.serial_number }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">License No.</td><td class="mono">{{ weapon.license_number }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">City</td><td>{{ weapon.city or '—' }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">Storage</td><td>{{ weapon.storage_address or '—' }}</td></tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Current Status</td>
+                        <td>
+                            {% if weapon.status == 'Assigned' %}
+                                <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Assigned</span>
+                            {% elif weapon.status == 'In Storage' %}
+                                <span class="status-pill status-pill--slate">In Storage</span>
+                            {% elif weapon.status == 'Under Repair' %}
+                                <span class="status-pill status-pill--amber"><span class="led led--amber"></span> Under Repair</span>
+                            {% elif weapon.status == 'Decommissioned' %}
+                                <span class="status-pill status-pill--red"><span class="led led--red"></span> Decommissioned</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted); border-bottom: none;">Currently With</td>
+                        <td style="border-bottom: none;">
+                            {% if weapon.guards %}
+                                <span class="primary">{{ weapon.guards.full_name }}</span>
+                            {% else %}
+                                <span style="color: var(--text-muted);">Unassigned</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Assignment Form -->
+    <div class="panel">
+        <div class="panel__header">
+            <h3>Update Assignment</h3>
+        </div>
+        <div style="padding: 20px 18px;">
+            <form method="POST">
+                <div class="field">
+                    <label for="guard_id">Assign to Guard</label>
+                    <select id="guard_id" name="guard_id">
+                        <option value="">— Unassign / Return to Storage —</option>
+                        {% for g in active_guards %}
+                            <option value="{{ g.id }}" {{ 'selected' if weapon.guards and weapon.guards.id == g.id }}>
+                                {{ g.full_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 6px;">
+                        Only guards currently marked <strong>Active</strong> appear here.
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px;">
+                    <a href="{{ url_for('weapons.index') }}"
+                       style="display: inline-flex; align-items: center; padding: 10px 16px; font-size: 0.85rem; color: var(--text-muted); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn-primary" style="width: auto; padding: 10px 20px;">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
