@@ -13,6 +13,7 @@ from datetime import date
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from decorators import login_required
 from supabase_client import get_session_client
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 
 clients_bp = Blueprint("clients", __name__)
 
@@ -72,6 +73,56 @@ def index():
         counts=counts,
         guard_counts=guard_counts,
     )
+@clients_bp.route("/lookup")
+@login_required
+def lookup():
+    client = get_session_client()
+    name_query = request.args.get("client_name", "").strip()
+
+    if not name_query:
+        return jsonify({"success": False, "error": "Please enter a Client or Company Name to search."}), 400
+
+    try:
+        res = client.table("clients").select("*") \
+            .ilike("client_name", f"%{name_query}%").limit(1).execute()
+        client_data = res.data[0] if res.data else None
+
+        if not client_data:
+            res_fallback = client.table("clients").select("*") \
+                .ilike("company_name", f"%{name_query}%").limit(1).execute()
+            client_data = res_fallback.data[0] if res_fallback.data else None
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Lookup failed: {str(e)}"}), 500
+
+    if not client_data:
+        return jsonify({"success": False, "error": f"No client found matching '{name_query}'."}), 404
+
+    guards_deployed = []
+    try:
+        guards_res = client.table("guards").select(
+            "id, full_name, guard_id, status, base_salary"
+        ).eq("assigned_client_id", client_data["id"]).execute()
+        guards_deployed = guards_res.data or []
+    except Exception:
+        pass
+
+    total_guard_cost = sum(float(g.get("base_salary") or 0) for g in guards_deployed)
+    monthly_billing = float(client_data.get("monthly_billing_rate") or client_data.get("rate_per_guard") or 0)
+
+    client_data["guards_deployed_count"] = len(guards_deployed)
+    client_data["total_guard_cost"] = total_guard_cost
+    client_data["monthly_profit"] = monthly_billing - total_guard_cost
+
+    open_complaints_count = 0
+    try:
+        comp_res = client.table("complaints").select("id", count="exact") \
+            .eq("client_id", client_data["id"]).eq("resolution_status", "Unresolved").execute()
+        open_complaints_count = comp_res.count or 0
+    except Exception:
+        pass
+    client_data["open_complaints_count"] = open_complaints_count
+
+    return jsonify({"success": True, "data": client_data}) 
 
 
 @clients_bp.route("/add", methods=["GET", "POST"])

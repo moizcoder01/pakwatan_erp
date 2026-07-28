@@ -17,6 +17,17 @@
     </div>
 </div>
 
+<!-- Quick Lookup: 360-Degree Guard Summary -->
+<form class="lookup-bar" id="guardLookupForm">
+    <div class="lookup-bar__input-wrap">
+        <span class="icon">⌕</span>
+        <input type="text" id="guardLookupInput" name="guard_id"
+            placeholder="Quick lookup by Guard ID (e.g. PK-G-1002)" autocomplete="off">
+    </div>
+    <button type="submit" class="lookup-bar__submit">View 360° Profile</button>
+</form>
+<div class="info-card-container" id="guardInfoCard"></div>
+
 <!-- Status Filter Tabs -->
 <div class="filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
     <a href="{{ url_for('guards.index') }}" class="tab-item {{ 'active' if not status_filter }}">
@@ -139,4 +150,85 @@
         </table>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function renderGuardInfoCard(g) {
+    var weapon = g.assigned_weapon;
+    var clientObj = g.clients;
+    var advTotal = g.pending_advances_total || 0;
+    var advCount = (g.pending_advances || []).length;
+
+    var statusPill = g.status === 'Active'
+        ? '<span class="status-pill status-pill--teal"><span class="led led--teal"></span> Active</span>'
+        : g.status === 'Waiting List'
+        ? '<span class="status-pill status-pill--amber"><span class="led led--amber"></span> Waiting List</span>'
+        : g.status === 'Suspended'
+        ? '<span class="status-pill status-pill--red"><span class="led led--red"></span> Suspended</span>'
+        : '<span class="status-pill status-pill--slate">Inactive</span>';
+
+    var verificationPill = g.verification_status === 'Verified'
+        ? '<span class="status-pill status-pill--teal">Verified</span>'
+        : g.verification_status === 'Rejected'
+        ? '<span class="status-pill status-pill--red">Rejected</span>'
+        : '<span class="status-pill status-pill--amber">Pending</span>';
+
+    var initials = (g.full_name || '?').split(' ').map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+
+    var weaponValue = weapon
+        ? '<span class="status-pill status-pill--amber">' + weapon.weapon_type + '</span>' +
+          '<div class="mono" style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">' + weapon.serial_number + '</div>'
+        : '<span class="info-card__value--muted">Unarmed</span>';
+
+    var clientValue = clientObj ? clientObj.client_name : '<span class="info-card__value--muted">Unassigned</span>';
+
+    var advTone = advCount > 0 ? 'negative' : 'positive';
+    var advText = advCount > 0
+        ? 'Rs. ' + Number(advTotal).toLocaleString() + ' pending (' + advCount + ' advance' + (advCount > 1 ? 's' : '') + ')'
+        : 'No pending deductions';
+
+    return (
+        '<div class="info-card">' +
+            '<div class="info-card__header">' +
+                '<div class="info-card__identity">' +
+                    '<div class="info-card__avatar">' + initials + '</div>' +
+                    '<div>' +
+                        '<div class="info-card__title">' + g.full_name + '</div>' +
+                        '<div class="info-card__subtitle">' + (g.guard_id || '—') + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="info-card__badges">' +
+                    statusPill + verificationPill +
+                    '<button type="button" class="info-card__close" data-lookup-close aria-label="Close">&times;</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="info-card__grid">' +
+                '<div class="info-card__field"><div class="info-card__label">CNIC</div><div class="info-card__value mono">' + (g.cnic || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Phone</div><div class="info-card__value mono">' + (g.phone || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Gender</div><div class="info-card__value">' + (g.gender || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Blood Group</div><div class="info-card__value mono">' + (g.blood_group || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Emergency Contact</div><div class="info-card__value mono">' + (g.emergency_contact || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Address</div><div class="info-card__value">' + (g.address || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Base Salary</div><div class="info-card__value mono primary">Rs. ' + Number(g.base_salary || 0).toLocaleString() + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Assigned Client</div><div class="info-card__value">' + clientValue + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Assigned Weapon</div><div class="info-card__value">' + weaponValue + '</div></div>' +
+            '</div>' +
+            '<div class="info-card__highlight">' +
+                '<span class="info-card__label" style="margin-bottom:0;">Active Salary Advance Deductions</span>' +
+                '<span class="info-card__highlight-value info-card__highlight-value--' + advTone + '">' + advText + '</span>' +
+            '</div>' +
+        '</div>'
+    );
+}
+
+initQuickLookup({
+    formId: "guardLookupForm",
+    inputId: "guardLookupInput",
+    cardContainerId: "guardInfoCard",
+    endpoint: "{{ url_for('guards.lookup') }}",
+    paramName: "guard_id",
+    render: renderGuardInfoCard
+});
+</script>
 {% endblock %}

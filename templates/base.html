@@ -75,6 +75,7 @@
                     href="{{ url_for('roles.index') }}">
                     <span class="nav-icon">U</span> User Roles
                 </a>
+                
                 {% endif %}
             </nav>
             <div class="sidebar__footer">
@@ -117,6 +118,8 @@
             </main>
         </div>
     </div>
+    <script src="{{ url_for('static', filename='js/quick-lookup.js') }}"></script>
+    {% block extra_js %}{% endblock %}
     {% else %}
     {% block guest_content %}{% endblock %}
     {% endif %}

@@ -15,6 +15,17 @@
     </div>
 </div>
 
+<!-- Quick Lookup: 360-Degree Client Summary -->
+<form class="lookup-bar" id="clientLookupForm">
+    <div class="lookup-bar__input-wrap">
+        <span class="icon">⌕</span>
+        <input type="text" id="clientLookupInput" name="client_name"
+            placeholder="Quick lookup by Client / Company Name" autocomplete="off">
+    </div>
+    <button type="submit" class="lookup-bar__submit">View 360° Profile</button>
+</form>
+<div class="info-card-container" id="clientInfoCard"></div>
+
 <!-- Status Filter Tabs -->
 <div class="filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
     <a href="{{ url_for('clients.index') }}" 
@@ -123,4 +134,64 @@
         </table>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function renderClientInfoCard(c) {
+    var statusPill = c.status === 'Active'
+        ? '<span class="status-pill status-pill--teal"><span class="led led--teal"></span> Active</span>'
+        : c.status === 'Terminated'
+        ? '<span class="status-pill status-pill--red"><span class="led led--red"></span> Terminated</span>'
+        : '<span class="status-pill status-pill--slate">Inactive</span>';
+
+    var billing = Number(c.monthly_billing_rate || c.rate_per_guard || 0);
+    var profit = Number(c.monthly_profit || 0);
+    var profitTone = profit >= 0 ? 'positive' : 'negative';
+
+    var contractRange = (c.contract_start || c.contract_start_date || '—') + ' → ' +
+        (c.contract_end || c.contract_end_date || 'Ongoing');
+
+    return (
+        '<div class="info-card">' +
+            '<div class="info-card__header">' +
+                '<div class="info-card__identity">' +
+                    '<div class="info-card__avatar">' + (c.client_name ? c.client_name[0].toUpperCase() : 'C') + '</div>' +
+                    '<div>' +
+                        '<div class="info-card__title">' + c.client_name + '</div>' +
+                        '<div class="info-card__subtitle">' + (c.company_name || 'No corporate entity on file') + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="info-card__badges">' +
+                    statusPill +
+                    '<button type="button" class="info-card__close" data-lookup-close aria-label="Close">&times;</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="info-card__grid">' +
+                '<div class="info-card__field"><div class="info-card__label">Contact Person</div><div class="info-card__value">' + (c.contact_person || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Phone</div><div class="info-card__value mono">' + (c.phone || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Email</div><div class="info-card__value mono">' + (c.email || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Address</div><div class="info-card__value">' + (c.address || '—') + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Contract Period</div><div class="info-card__value mono">' + contractRange + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Monthly Billing</div><div class="info-card__value mono primary">Rs. ' + billing.toLocaleString() + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Guards Deployed</div><div class="info-card__value">' + c.guards_deployed_count + '</div></div>' +
+                '<div class="info-card__field"><div class="info-card__label">Open Complaints</div><div class="info-card__value">' + c.open_complaints_count + '</div></div>' +
+            '</div>' +
+            '<div class="info-card__highlight">' +
+                '<span class="info-card__label" style="margin-bottom:0;">Net Monthly Profit Margin</span>' +
+                '<span class="info-card__highlight-value info-card__highlight-value--' + profitTone + '">Rs. ' + profit.toLocaleString() + '</span>' +
+            '</div>' +
+        '</div>'
+    );
+}
+
+initQuickLookup({
+    formId: "clientLookupForm",
+    inputId: "clientLookupInput",
+    cardContainerId: "clientInfoCard",
+    endpoint: "{{ url_for('clients.lookup') }}",
+    paramName: "client_name",
+    render: renderClientInfoCard
+});
+</script>
 {% endblock %}

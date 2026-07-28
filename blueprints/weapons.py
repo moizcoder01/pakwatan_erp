@@ -7,6 +7,7 @@ procurement (CapEx) log.
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from supabase_client import get_session_client
 from decorators import login_required  # Ya jo decorator chal raha hai
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 
 weapons_bp = Blueprint("weapons", __name__, url_prefix="/weapons")
 
@@ -47,6 +48,48 @@ def index():
         status_filter=status_filter,
         valid_statuses=VALID_STATUSES,
     )
+def _weapon_lookup_select():
+    return (
+        "id, weapon_type, serial_number, license_number, city, storage_address, "
+        "status, assigned_guard_id, created_at, guards(id, full_name, guard_id, status)"
+    )
+
+
+@weapons_bp.route("/lookup")
+@login_required
+def lookup():
+    supabase = get_session_client()
+    serial_query = request.args.get("serial_number", "").strip()
+
+    if not serial_query:
+        return jsonify({"success": False, "error": "Please enter a Serial Number to search."}), 400
+
+    try:
+        res = supabase.table("weapons").select(_weapon_lookup_select()) \
+            .eq("serial_number", serial_query).limit(1).execute()
+        weapon = res.data[0] if res.data else None
+
+        if not weapon:
+            res_fallback = supabase.table("weapons").select(_weapon_lookup_select()) \
+                .ilike("serial_number", f"%{serial_query}%").limit(1).execute()
+            weapon = res_fallback.data[0] if res_fallback.data else None
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Lookup failed: {str(e)}"}), 500
+
+    if not weapon:
+        return jsonify({"success": False, "error": f"No weapon found matching Serial Number '{serial_query}'."}), 404
+
+    last_purchase = None
+    try:
+        purch_res = supabase.table("weapon_purchases").select(
+            "vendor_name, purchase_cost, purchase_date, invoice_reference"
+        ).eq("weapon_id", weapon["id"]).order("purchase_date", desc=True).limit(1).execute()
+        last_purchase = purch_res.data[0] if purch_res.data else None
+    except Exception:
+        pass
+
+    weapon["last_purchase"] = last_purchase
+    return jsonify({"success": True, "data": weapon})
 
 # =============================================================================
 # REGISTER NEW WEAPON

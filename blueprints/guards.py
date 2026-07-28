@@ -14,6 +14,7 @@ import string
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from decorators import login_required
 from supabase_client import get_session_client
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 
 guards_bp = Blueprint("guards", __name__)
 
@@ -108,6 +109,56 @@ def index():
         status_filter=status_filter,
         counts=counts,
     )
+def _guard_lookup_select():
+    return (
+        "id, guard_id, full_name, cnic, phone, gender, emergency_contact, address, "
+        "blood_group, verification_status, status, assigned_client_id, base_salary, created_at, "
+        "clients(id, client_name, company_name), weapons(id, weapon_type, serial_number, status)"
+    )
+
+
+@guards_bp.route("/lookup")
+@login_required
+def lookup():
+    client = get_session_client()
+    guard_id_query = request.args.get("guard_id", "").strip()
+
+    if not guard_id_query:
+        return jsonify({"success": False, "error": "Please enter a Guard ID to search."}), 400
+
+    try:
+        res = client.table("guards").select(_guard_lookup_select()) \
+            .eq("guard_id", guard_id_query).limit(1).execute()
+        guard = res.data[0] if res.data else None
+
+        if not guard:
+            res_fallback = client.table("guards").select(_guard_lookup_select()) \
+                .ilike("guard_id", f"%{guard_id_query}%").limit(1).execute()
+            guard = res_fallback.data[0] if res_fallback.data else None
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Lookup failed: {str(e)}"}), 500
+
+    if not guard:
+        return jsonify({"success": False, "error": f"No guard found matching Guard ID '{guard_id_query}'."}), 404
+
+    weapon_rows = guard.get("weapons") or []
+    guard["assigned_weapon"] = weapon_rows[0] if weapon_rows else None
+
+    pending_advances, pending_total = [], 0.0
+    try:
+        adv_res = client.table("salary_advances").select(
+            "id, amount, reason, advance_date, auto_deduct_next_month, is_deducted"
+        ).eq("guard_id", guard["id"]).eq("is_deducted", False) \
+         .order("advance_date", desc=True).execute()
+        pending_advances = adv_res.data or []
+        pending_total = sum(float(a["amount"]) for a in pending_advances)
+    except Exception:
+        pass
+
+    guard["pending_advances"] = pending_advances
+    guard["pending_advances_total"] = pending_total
+
+    return jsonify({"success": True, "data": guard})
 
 
 @guards_bp.route("/add", methods=["GET", "POST"])
