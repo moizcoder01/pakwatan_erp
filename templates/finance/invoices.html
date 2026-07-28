@@ -9,6 +9,9 @@
         <p>Issue client invoices, track Paid / Unpaid / Overdue status, and monitor collections.</p>
     </div>
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('finance.expenses_tracker') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
+            Expense Tracker
+        </a>
         <a href="{{ url_for('finance.dashboard') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
             Financial Dashboard
         </a>

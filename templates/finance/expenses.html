@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Expense Management Tracker — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1>Expense Management Tracker</h1>
+        <p>Track manual overhead, review automated operating costs, and monitor the expense burden for the selected period.</p>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('finance.dashboard') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
+            Financial Dashboard
+        </a>
+        <a href="{{ url_for('finance.invoices') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
+            Client Invoices
+        </a>
+    </div>
+</div>
+
+<div class="metric-grid">
+    <div class="metric-card">
+        <div class="metric-card__eyebrow"><span class="led led--amber"></span> Guard Salaries</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(summary.payroll_total) }}</div>
+        <div class="metric-card__context">Automated payroll cost in selected range</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card__eyebrow"><span class="led led--red"></span> Weapon Procurements</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(summary.weapon_total) }}</div>
+        <div class="metric-card__context">Capital expenditure from `weapon_purchases`</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card__eyebrow"><span class="led led--teal"></span> Uniforms &amp; Tactical Gear</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(summary.uniform_total) }}</div>
+        <div class="metric-card__context">Automated gear expenses from existing issue log</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card__eyebrow"><span class="led led--slate"></span> Selected View Total</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(summary.filtered_total) }}</div>
+        <div class="metric-card__context">Manual + automated expense overhead after filters</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(340px, 430px) 1fr; gap: 24px; align-items: start; margin-bottom: 24px;">
+    <div class="panel">
+        <div class="panel__header">
+            <h3>Add New Expense</h3>
+            <span class="count-tag">Manual Log</span>
+        </div>
+        <form action="{{ url_for('finance.expenses_tracker') }}" method="post" style="padding: 20px 24px;">
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div class="field">
+                    <label for="category">Category <span style="color: var(--accent-red);">*</span></label>
+                    <select id="category" name="category" class="form-select" required>
+                        <option value="">-- Select Expense Category --</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}">{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="description">Description / Notes <span style="color: var(--accent-red);">*</span></label>
+                    <input type="text" id="description" name="description" required placeholder="e.g. Karachi office generator repair">
+                </div>
+
+                <div class="field">
+                    <label for="amount">Amount (PKR) <span style="color: var(--accent-red);">*</span></label>
+                    <input type="number" step="0.01" min="0.01" id="amount" name="amount" required placeholder="e.g. 18500">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="field">
+                        <label for="expense_date">Expense Date <span style="color: var(--accent-red);">*</span></label>
+                        <input type="date" id="expense_date" name="expense_date" value="{{ filters.end_date_value }}" required>
+                    </div>
+                    <div class="field">
+                        <label for="payment_method">Payment Method <span style="color: var(--accent-red);">*</span></label>
+                        <select id="payment_method" name="payment_method" class="form-select" required>
+                            <option value="">-- Select Method --</option>
+                            {% for method in payment_methods %}
+                            <option value="{{ method }}">{{ method }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="reference_number">Invoice / Receipt Reference Number</label>
+                    <input type="text" id="reference_number" name="reference_number" placeholder="Optional reference code">
+                </div>
+
+                <div class="field" style="margin-bottom: 0;">
+                    <label for="notes">Additional Notes</label>
+                    <input type="text" id="notes" name="notes" placeholder="Optional context for auditors or ops">
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 11px;">Save Expense Entry</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="panel">
+        <div class="panel__header">
+            <h3>Filters &amp; Overhead Summary</h3>
+            <span class="count-tag">{{ ledger_rows|length }} visible</span>
+        </div>
+        <form action="{{ url_for('finance.expenses_tracker') }}" method="get" style="padding: 20px 24px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px;">
+                <div class="field">
+                    <label for="period">Date Range</label>
+                    <select id="period" name="period" class="form-select">
+                        <option value="this_month" {% if filters.period == 'this_month' %}selected{% endif %}>This Month</option>
+                        <option value="last_month" {% if filters.period == 'last_month' %}selected{% endif %}>Last Month</option>
+                        <option value="custom" {% if filters.period == 'custom' %}selected{% endif %}>Custom</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="category_filter">Category</label>
+                    <select id="category_filter" name="category" class="form-select">
+                        <option value="">All Categories</option>
+                        <option value="Guard Salaries" {% if filters.category == 'Guard Salaries' %}selected{% endif %}>Guard Salaries</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}" {% if filters.category == category %}selected{% endif %}>{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="payment_method_filter">Payment Type</label>
+                    <select id="payment_method_filter" name="payment_method" class="form-select">
+                        <option value="">All Payment Types</option>
+                        <option value="System" {% if filters.payment_method == 'System' %}selected{% endif %}>System / Automated</option>
+                        {% for method in payment_methods %}
+                        <option value="{{ method }}" {% if filters.payment_method == method %}selected{% endif %}>{{ method }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="q">Search</label>
+                    <input type="text" id="q" name="q" value="{{ filters.search }}" placeholder="Description, notes, reference...">
+                </div>
+                <div class="field">
+                    <label for="start_date">Start Date</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ filters.start_date_value }}">
+                </div>
+                <div class="field">
+                    <label for="end_date">End Date</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ filters.end_date_value }}">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px;">
+                <button type="submit" class="btn-primary" style="width: auto; padding: 10px 18px;">Apply Filters</button>
+                <a href="{{ url_for('finance.expenses_tracker') }}" class="tab-item" style="text-decoration: none;">Reset</a>
+                <div class="count-tag">Operational Auto Total: Rs {{ "{:,.0f}".format(summary.operational_total) }}</div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel__header">
+        <h3>Unified Expense Ledger</h3>
+        <span class="count-tag">Total Expense Overhead: Rs {{ "{:,.0f}".format(summary.filtered_total) }}</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr>
+                    <th>Date / Period</th>
+                    <th>Source</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Payment</th>
+                    <th>Reference</th>
+                    <th style="text-align: right;">Amount (PKR)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in ledger_rows %}
+                <tr>
+                    <td class="mono">{{ row.expense_date or '—' }}</td>
+                    <td>
+                        <span class="status-pill {% if row.source_type == 'manual' %}status-pill--amber{% elif row.source_type == 'payroll' %}status-pill--teal{% elif row.source_type == 'weapon_purchase' %}status-pill--red{% else %}status-pill--slate{% endif %}">
+                            {{ row.source_label }}
+                        </span>
+                    </td>
+                    <td class="primary">{{ row.category }}</td>
+                    <td>
+                        <div>{{ row.description }}</div>
+                        {% if row.notes %}
+                        <div style="font-size: 0.76rem; color: var(--text-muted);">{{ row.notes }}</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.payment_method or '—' }}</td>
+                    <td class="mono">{{ row.reference_number or '—' }}</td>
+                    <td class="mono primary" style="text-align: right;">Rs {{ "{:,.2f}".format(row.amount) }}</td>
+                </tr>
+                {% else %}
+                <tr class="empty-row">
+                    <td colspan="7">No expenses matched this filter range. Adjust the dates or add a manual expense entry.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

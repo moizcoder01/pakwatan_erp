@@ -27,6 +27,44 @@ def _get_guards_list(client):
         return []
 
 
+def _normalize_attendance_row(row):
+    """Unify date fields across Phase-1 (attendance_date) and Chunk 6 (date) schemas."""
+    normalized = dict(row)
+    normalized["display_date"] = (
+        normalized.get("attendance_date") or normalized.get("date")
+    )
+    return normalized
+
+
+def _fetch_recent_attendance(client, limit=15):
+    """Fetch recent attendance logs for active guards with schema-compatible fallbacks."""
+    select_with_active = (
+        "id, attendance_date, status, overtime_hours, reason_for_absence, "
+        "guards!inner(full_name, guard_id, is_active)"
+    )
+    select_basic = (
+        "id, attendance_date, status, overtime_hours, reason_for_absence, "
+        "guards(full_name, guard_id)"
+    )
+
+    for select_cols, filter_active in ((select_with_active, True), (select_basic, False)):
+        try:
+            query = (
+                client.table("attendance")
+                .select(select_cols)
+                .order("attendance_date", desc=True)
+                .limit(limit)
+            )
+            if filter_active:
+                query = query.eq("guards.is_active", True)
+            rows = query.execute().data or []
+            return [_normalize_attendance_row(row) for row in rows]
+        except Exception:
+            continue
+
+    return []
+
+
 @payroll_bp.route("/")
 @login_required
 def index():
@@ -141,15 +179,7 @@ def mark_attendance():
                 form_data=request.form,
             )
 
-    # Fetch recent attendance records for quick view
-    recent_attendance = []
-    try:
-        att_res = client.table("attendance").select(
-            "id, date, status, overtime_hours, created_at, guards(full_name, guard_id)"
-        ).order("created_at", desc=True).limit(15).execute()
-        recent_attendance = att_res.data or []
-    except Exception:
-        pass
+    recent_attendance = _fetch_recent_attendance(client)
 
     guards = _get_guards_list(client)
     return render_template(

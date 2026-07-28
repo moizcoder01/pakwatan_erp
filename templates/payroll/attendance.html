@@ -94,7 +94,7 @@
                 <tbody>
                     {% for att in recent_attendance %}
                     <tr>
-                        <td class="mono" style="font-size: 0.8rem;">{{ att.date }}</td>
+                        <td class="mono" style="font-size: 0.8rem;">{{ att.display_date or att.attendance_date or '—' }}</td>
                         <td class="primary">
                             {{ att.guards.full_name if att.guards else '—' }}
                             {% if att.guards and att.guards.guard_id %}

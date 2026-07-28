@@ -1,10 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Pakwatan Security ERP{% endblock %}</title>
+    <script>
+        (function () {
+            var saved = localStorage.getItem('pakwatan-theme');
+            if (saved === 'light' || saved === 'dark') {
+                document.documentElement.setAttribute('data-theme', saved);
+            }
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
@@ -17,8 +25,13 @@
     <div class="app-shell">
         <aside class="sidebar">
             <div class="sidebar__brand">
-                <div class="sidebar__brand-name">Pakwatan Security</div>
-                <div class="sidebar__brand-tag"><span class="led led--teal"></span> ERP Console</div>
+                <div class="sidebar__brand-row">
+                    <img class="brand-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Pakwatan Security logo">
+                    <div>
+                        <div class="sidebar__brand-name">Pakwatan Security</div>
+                        <div class="sidebar__brand-tag"><span class="led led--teal"></span> ERP Console</div>
+                    </div>
+                </div>
             </div>
             <nav class="sidebar__nav">
                 <div class="sidebar__section-label">Operations</div>
@@ -54,7 +67,11 @@
                     href="{{ url_for('finance.dashboard') }}">
                     <span class="nav-icon">F</span> Finance
                 </a>
-                <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('finance.') and request.endpoint != 'finance.dashboard' }}"
+                <a class="nav-item {{ 'active' if request.endpoint == 'finance.expenses_tracker' }}"
+                    href="{{ url_for('finance.expenses_tracker') }}">
+                    <span class="nav-icon">E</span> Expenses
+                </a>
+                <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('finance.') and request.endpoint not in ['finance.dashboard', 'finance.expenses_tracker'] }}"
                     href="{{ url_for('finance.invoices') }}">
                     <span class="nav-icon">I</span> Invoices
                 </a>
@@ -93,6 +110,10 @@
                     </div>
                 </form>
                 <div class="topbar__spacer"></div>
+                <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle theme">
+                    <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">☀</span>
+                    <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">☾</span>
+                </button>
                 <div class="badge-chip">
                     <div class="badge-ring badge-ring--{{ current_user.role }}">{{ current_user.full_name[:2].upper() }}
                     </div>
@@ -119,6 +140,23 @@
         </div>
     </div>
     <script src="{{ url_for('static', filename='js/quick-lookup.js') }}"></script>
+    <script>
+        (function () {
+            var root = document.documentElement;
+            var toggle = document.getElementById('theme-toggle');
+            if (!toggle) return;
+
+            function applyTheme(theme) {
+                root.setAttribute('data-theme', theme);
+                localStorage.setItem('pakwatan-theme', theme);
+            }
+
+            toggle.addEventListener('click', function () {
+                var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+                applyTheme(next);
+            });
+        })();
+    </script>
     {% block extra_js %}{% endblock %}
     {% else %}
     {% block guest_content %}{% endblock %}

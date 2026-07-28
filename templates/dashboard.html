@@ -71,13 +71,13 @@
             <tbody>
                 {% for row in recent_attendance %}
                 <tr>
-                    <td class="mono">{{ row.attendance_date }}</td>
+                    <td class="mono">{{ row.display_date or row.attendance_date or '—' }}</td>
                     <td class="primary">{{ row.guards.full_name if row.guards else '—' }}</td>
                     <td>
                         {% if row.status in ('On Duty', 'Present') %}
                             <span class="status-pill status-pill--teal">{{ row.status }}</span>
-                        {% elif row.status == 'On Leave' %}
-                            <span class="status-pill status-pill--amber">{{ row.status }}</span>
+                        {% elif row.status in ('On Leave', 'Leave') %}
+                            <span class="status-pill status-pill--amber">{{ 'Leave' if row.status == 'Leave' else row.status }}</span>
                         {% else %}
                             <span class="status-pill status-pill--red">{{ row.status }}</span>
                         {% endif %}

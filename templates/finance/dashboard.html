@@ -9,6 +9,9 @@
         <p>Revenue from active client contracts versus paid payroll outflows and net operating margin.</p>
     </div>
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('finance.expenses_tracker') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px;">
+            Expense Tracker
+        </a>
         <a href="{{ url_for('finance.invoices') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px;">
             Manage Invoices
         </a>

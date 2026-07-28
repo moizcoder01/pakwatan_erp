@@ -5,6 +5,7 @@ Invoicing Module, Executive Financial Dashboard & CSV Export Engine.
 
 Routes:
   - GET        /finance/dashboard              : Revenue, payroll expense & net profit overview
+  - GET/POST   /finance/expenses               : Centralized expense tracker + manual expense logging
   - GET/POST   /finance/invoices               : Client invoice listing + creation form
   - GET/POST   /finance/invoices/pay/<id>      : Mark invoice as Paid
   - GET        /finance/export/payroll/csv     : Download full payroll ledger as CSV
@@ -28,6 +29,19 @@ from supabase_client import get_session_client
 
 finance_bp = Blueprint("finance", __name__)
 
+EXPENSE_CATEGORIES = (
+    "Rent",
+    "Utility Bills",
+    "Weapon Purchase",
+    "Uniforms & Tactical Gear",
+    "Legal/Licensing Fees",
+    "Office Maintenance",
+    "Fuel & Transport",
+    "Miscellaneous",
+)
+
+PAYMENT_METHODS = ("Cash", "Bank Transfer")
+
 
 def _safe_float(value, default=0.0):
     try:
@@ -48,6 +62,260 @@ def _get_clients_list(client):
         return res.data or []
     except Exception:
         return []
+
+
+def _safe_query_rows(query):
+    """Run a Supabase query and return [] on failure."""
+    try:
+        result = query.execute()
+        return result.data or []
+    except Exception:
+        return []
+
+
+def _parse_iso_date(raw_value, fallback):
+    """Parse YYYY-MM-DD input safely."""
+    if not raw_value:
+        return fallback
+    try:
+        return date.fromisoformat(raw_value)
+    except ValueError:
+        return fallback
+
+
+def _month_labels_between(start_date, end_date):
+    """Return month labels matching payroll.month values between dates."""
+    labels = []
+    cursor = start_date.replace(day=1)
+    end_month = end_date.replace(day=1)
+    while cursor <= end_month:
+        labels.append(cursor.strftime("%B %Y"))
+        if cursor.month == 12:
+            cursor = cursor.replace(year=cursor.year + 1, month=1)
+        else:
+            cursor = cursor.replace(month=cursor.month + 1)
+    return labels
+
+
+def _month_sort_anchor(month_label):
+    """Convert `July 2026` style labels to a sortable YYYY-MM-01 key."""
+    try:
+        return datetime.strptime(month_label, "%B %Y").date().isoformat()
+    except ValueError:
+        return month_label
+
+
+def _resolve_expense_filters():
+    """Build normalized filters for the expense tracker."""
+    today = date.today()
+    period = request.args.get("period", "this_month").strip() or "this_month"
+    category = request.args.get("category", "").strip()
+    payment_method = request.args.get("payment_method", "").strip()
+    search = request.args.get("q", "").strip()
+
+    if period == "last_month":
+        first_of_this_month = today.replace(day=1)
+        end_date = first_of_this_month - timedelta(days=1)
+        start_date = end_date.replace(day=1)
+    elif period == "custom":
+        fallback_start = today.replace(day=1)
+        start_date = _parse_iso_date(request.args.get("start_date", "").strip(), fallback_start)
+        end_date = _parse_iso_date(request.args.get("end_date", "").strip(), today)
+    else:
+        period = "this_month"
+        start_date = today.replace(day=1)
+        end_date = today
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    return {
+        "period": period,
+        "category": category,
+        "payment_method": payment_method,
+        "search": search,
+        "start_date": start_date,
+        "end_date": end_date,
+        "start_date_value": start_date.isoformat(),
+        "end_date_value": end_date.isoformat(),
+        "month_labels": _month_labels_between(start_date, end_date),
+    }
+
+
+def _row_matches_filters(row, filters):
+    """Apply category/payment/search filters to a normalized ledger row."""
+    category = filters["category"]
+    payment_method = filters["payment_method"]
+    search = filters["search"].lower()
+
+    if category and row.get("category") != category:
+        return False
+    if payment_method and row.get("payment_method") != payment_method:
+        return False
+    if search:
+        haystack = " ".join(
+            str(row.get(key) or "")
+            for key in ("description", "notes", "reference_number", "source_label")
+        ).lower()
+        if search not in haystack:
+            return False
+    return True
+
+
+def _fetch_manual_expense_rows(client, filters):
+    rows = _safe_query_rows(
+        client.table("manual_expenses")
+        .select(
+            "id, category, description, amount, expense_date, payment_method, "
+            "reference_number, notes, created_at"
+        )
+        .gte("expense_date", filters["start_date_value"])
+        .lte("expense_date", filters["end_date_value"])
+        .order("expense_date", desc=True)
+    )
+    ledger = []
+    for row in rows:
+        ledger.append(
+            {
+                "id": row.get("id"),
+                "source_type": "manual",
+                "source_label": "Manual Expense",
+                "category": row.get("category") or "Miscellaneous",
+                "description": row.get("description") or "Manual expense entry",
+                "notes": row.get("notes") or "",
+                "amount": _safe_float(row.get("amount")),
+                "expense_date": row.get("expense_date"),
+                "sort_key": row.get("expense_date") or "",
+                "payment_method": row.get("payment_method") or "",
+                "reference_number": row.get("reference_number") or "",
+            }
+        )
+    return ledger
+
+
+def _fetch_payroll_expense_rows(client, filters):
+    month_labels = filters["month_labels"]
+    if not month_labels:
+        return []
+
+    query = client.table("payroll").select(
+        "id, month, net_salary, status, guards(full_name, guard_id)"
+    )
+    if len(month_labels) == 1:
+        query = query.eq("month", month_labels[0])
+    else:
+        query = query.in_("month", month_labels)
+
+    rows = _safe_query_rows(query.order("created_at", desc=True))
+    ledger = []
+    for row in rows:
+        guard = row.get("guards") or {}
+        guard_name = guard.get("full_name") or "Unknown Guard"
+        month = row.get("month") or ""
+        status = row.get("status") or "Pending"
+        ledger.append(
+            {
+                "id": row.get("id"),
+                "source_type": "payroll",
+                "source_label": "Payroll",
+                "category": "Guard Salaries",
+                "description": f"{guard_name} salary for {month}".strip(),
+                "notes": f"Payroll status: {status}",
+                "amount": _safe_float(row.get("net_salary")),
+                "expense_date": month,
+                "sort_key": _month_sort_anchor(month),
+                "payment_method": "Bank Transfer" if status == "Paid" else "System",
+                "reference_number": guard.get("guard_id") or "",
+            }
+        )
+    return ledger
+
+
+def _fetch_weapon_purchase_rows(client, filters):
+    rows = _safe_query_rows(
+        client.table("weapon_purchases")
+        .select("id, vendor_name, purchase_cost, purchase_date, invoice_reference, notes")
+        .gte("purchase_date", filters["start_date_value"])
+        .lte("purchase_date", filters["end_date_value"])
+        .order("purchase_date", desc=True)
+    )
+    ledger = []
+    for row in rows:
+        ledger.append(
+            {
+                "id": row.get("id"),
+                "source_type": "weapon_purchase",
+                "source_label": "Weapon Procurement",
+                "category": "Weapon Purchase",
+                "description": row.get("vendor_name") or "Weapon purchase",
+                "notes": row.get("notes") or "",
+                "amount": _safe_float(row.get("purchase_cost")),
+                "expense_date": row.get("purchase_date"),
+                "sort_key": row.get("purchase_date") or "",
+                "payment_method": "System",
+                "reference_number": row.get("invoice_reference") or "",
+            }
+        )
+    return ledger
+
+
+def _fetch_uniform_rows(client, filters):
+    rows = _safe_query_rows(
+        client.table("expenses")
+        .select("id, item_type, description, quantity, amount, expense_date")
+        .gte("expense_date", filters["start_date_value"])
+        .lte("expense_date", filters["end_date_value"])
+        .order("expense_date", desc=True)
+    )
+    ledger = []
+    for row in rows:
+        qty = row.get("quantity") or 1
+        item_type = row.get("item_type") or "Gear"
+        description = row.get("description") or f"{item_type} purchase"
+        ledger.append(
+            {
+                "id": row.get("id"),
+                "source_type": "uniform_expense",
+                "source_label": "Uniform / Gear",
+                "category": "Uniforms & Tactical Gear",
+                "description": description,
+                "notes": f"Quantity: {qty}",
+                "amount": _safe_float(row.get("amount")),
+                "expense_date": row.get("expense_date"),
+                "sort_key": row.get("expense_date") or "",
+                "payment_method": "System",
+                "reference_number": item_type,
+            }
+        )
+    return ledger
+
+
+def _build_expense_tracker_payload(client, filters):
+    """Merge manual + automated cost records into one filtered ledger."""
+    manual_rows = _fetch_manual_expense_rows(client, filters)
+    payroll_rows = _fetch_payroll_expense_rows(client, filters)
+    weapon_rows = _fetch_weapon_purchase_rows(client, filters)
+    uniform_rows = _fetch_uniform_rows(client, filters)
+
+    combined = manual_rows + payroll_rows + weapon_rows + uniform_rows
+    filtered = [row for row in combined if _row_matches_filters(row, filters)]
+    filtered.sort(key=lambda row: str(row.get("sort_key") or ""), reverse=True)
+
+    summary = {
+        "manual_total": sum(row["amount"] for row in manual_rows),
+        "payroll_total": sum(row["amount"] for row in payroll_rows),
+        "weapon_total": sum(row["amount"] for row in weapon_rows),
+        "uniform_total": sum(row["amount"] for row in uniform_rows),
+    }
+    summary["operational_total"] = (
+        summary["payroll_total"] + summary["weapon_total"] + summary["uniform_total"]
+    )
+    summary["filtered_total"] = sum(row["amount"] for row in filtered)
+
+    return {
+        "ledger_rows": filtered,
+        "summary": summary,
+    }
 
 
 def _next_invoice_number(client):
@@ -180,6 +448,67 @@ def dashboard():
         "finance/dashboard.html",
         metrics=metrics,
         recent_invoices=recent_invoices,
+    )
+
+
+@finance_bp.route("/expenses", methods=["GET", "POST"])
+@login_required
+def expenses_tracker():
+    client = get_session_client()
+
+    if request.method == "POST":
+        category = request.form.get("category", "").strip()
+        description = request.form.get("description", "").strip()
+        amount = _safe_float(request.form.get("amount", "").strip())
+        expense_date = request.form.get("expense_date", "").strip() or date.today().isoformat()
+        payment_method = request.form.get("payment_method", "").strip()
+        reference_number = request.form.get("reference_number", "").strip()
+        notes = request.form.get("notes", "").strip()
+
+        if category not in EXPENSE_CATEGORIES:
+            flash("Please choose a valid expense category.", "error")
+            return redirect(url_for("finance.expenses_tracker"))
+        if amount <= 0:
+            flash("Expense amount must be greater than zero.", "error")
+            return redirect(url_for("finance.expenses_tracker"))
+        if payment_method not in PAYMENT_METHODS:
+            flash("Please choose a valid payment method.", "error")
+            return redirect(url_for("finance.expenses_tracker"))
+
+        payload = {
+            "category": category,
+            "description": description or "Manual expense entry",
+            "amount": amount,
+            "expense_date": expense_date,
+            "payment_method": payment_method,
+            "reference_number": reference_number or None,
+            "notes": notes or None,
+        }
+
+        try:
+            client.table("manual_expenses").insert(payload).execute()
+            flash("Expense entry logged successfully.", "success")
+        except Exception as exc:
+            message = str(exc)
+            if "manual_expenses" in message or "PGRST204" in message or "schema cache" in message:
+                flash(
+                    "Expense tracker table missing. Run the new expense migration in Supabase SQL Editor, then try again.",
+                    "error",
+                )
+            else:
+                flash(f"Failed to save expense entry: {message}", "error")
+        return redirect(url_for("finance.expenses_tracker"))
+
+    filters = _resolve_expense_filters()
+    tracker = _build_expense_tracker_payload(client, filters)
+
+    return render_template(
+        "finance/expenses.html",
+        categories=EXPENSE_CATEGORIES,
+        payment_methods=PAYMENT_METHODS,
+        filters=filters,
+        ledger_rows=tracker["ledger_rows"],
+        summary=tracker["summary"],
     )
 
 

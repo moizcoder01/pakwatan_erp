@@ -98,18 +98,46 @@ def _client_metrics(client, client_id):
     }
 
 
-def _recent_attendance(client, guard_ids=None, limit=8):
-    query = (
-        client.table("attendance")
-        .select("attendance_date, status, reason_for_absence, guards(full_name)")
-        .order("attendance_date", desc=True)
-        .limit(limit)
+def _normalize_attendance_row(row):
+    """Unify date fields across Phase-1 (attendance_date) and Chunk 6 (date) schemas."""
+    normalized = dict(row)
+    normalized["display_date"] = (
+        normalized.get("attendance_date") or normalized.get("date")
     )
-    if guard_ids is not None:
-        if not guard_ids:
-            return []
-        query = query.in_("guard_id", guard_ids)
-    return _safe_data(query)
+    return normalized
+
+
+def _recent_attendance(client, guard_ids=None, limit=8):
+    """Fetch recent attendance for active guards with schema-compatible fallbacks."""
+    select_with_active = (
+        "id, attendance_date, status, reason_for_absence, overtime_hours, "
+        "guards!inner(full_name, guard_id, is_active)"
+    )
+    select_basic = (
+        "id, attendance_date, status, reason_for_absence, overtime_hours, "
+        "guards(full_name, guard_id)"
+    )
+
+    for select_cols, filter_active in ((select_with_active, True), (select_basic, False)):
+        try:
+            query = (
+                client.table("attendance")
+                .select(select_cols)
+                .order("attendance_date", desc=True)
+                .limit(limit)
+            )
+            if filter_active:
+                query = query.eq("guards.is_active", True)
+            if guard_ids is not None:
+                if not guard_ids:
+                    return []
+                query = query.in_("guard_id", guard_ids)
+            rows = query.execute().data or []
+            return [_normalize_attendance_row(row) for row in rows]
+        except Exception:
+            continue
+
+    return []
 
 
 def _recent_complaints(client, client_id=None, limit=6):

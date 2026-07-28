@@ -38,6 +38,38 @@
   --shadow-panel: 0 8px 28px rgba(0,0,0,0.35);
 }
 
+/* --- Light theme (comfortable off-white / slate accents) --- */
+[data-theme="light"] {
+  --bg-base:        #f3f4f6;
+  --bg-panel:       #ffffff;
+  --bg-elevated:    #eef1f5;
+  --bg-elevated-hover: #e4e9ef;
+  --border-hairline: #d7dde6;
+  --border-strong:   #c2cad6;
+
+  --text-primary:   #1c2430;
+  --text-secondary: #4b5568;
+  --text-muted:     #7b8798;
+
+  --accent-amber-dim:  #fdf3e3;
+  --accent-teal-dim:   #e3f5f1;
+  --accent-red-dim:    #fdecea;
+  --accent-slate:      #5f6f8a;
+
+  --shadow-panel: 0 8px 28px rgba(28,36,48,0.08);
+}
+
+[data-theme="light"] .login-screen {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(232,163,61,0.08), transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(79,182,166,0.08), transparent 45%),
+    var(--bg-base);
+}
+
+[data-theme="light"] .status-pill--slate {
+  background: rgba(95,111,138,0.12);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
@@ -103,6 +135,18 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; 
   padding: 0 20px 22px 20px;
   border-bottom: 1px solid var(--border-hairline);
   margin-bottom: 18px;
+}
+.sidebar__brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 .sidebar__brand-name {
   font-family: var(--font-display);
@@ -208,6 +252,34 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; 
 .search-input-wrap input::placeholder { color: var(--text-muted); }
 
 .topbar__spacer { flex: 1; }
+
+/* --- Theme toggle --- */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-hairline);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+.theme-toggle__icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.theme-toggle__icon--sun { display: none; }
+.theme-toggle__icon--moon { display: block; }
+[data-theme="light"] .theme-toggle__icon--sun { display: block; }
+[data-theme="light"] .theme-toggle__icon--moon { display: none; }
 
 /* --- Identity badge (signature element, reused for logged-in user) --- */
 .badge-chip {
@@ -395,12 +467,23 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; 
 }
 .login-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 460px;
   background: var(--bg-panel);
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-md);
-  padding: 32px 30px 26px 30px;
+  padding: 44px 40px 36px 40px;
   box-shadow: var(--shadow-panel);
+}
+.login-card__logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.login-card__logo {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
 }
 .login-card__brand {
   display: flex;
@@ -418,8 +501,16 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; 
   color: var(--bg-base);
   font-size: 0.95rem;
 }
-.login-card h1 { font-size: 1.15rem; }
-.login-card__sub { color: var(--text-secondary); font-size: 0.82rem; margin: 4px 0 22px 0; }
+.login-card h1 {
+  font-size: 1.45rem;
+  text-align: center;
+}
+.login-card__sub {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin: 8px 0 28px 0;
+  text-align: center;
+}
 
 .field { margin-bottom: 16px; }
 .field label {
@@ -586,6 +677,8 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; 
     border-bottom: 1px solid var(--border-hairline);
   }
   .sidebar__brand { border-bottom: none; padding: 0 14px 0 0; margin-bottom: 0; }
+  .sidebar__brand-row { gap: 8px; }
+  .brand-logo { width: 32px; height: 32px; }
   .sidebar__nav { display: flex; padding: 0; }
   .sidebar__section-label { display: none; }
   .nav-item { white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; }
