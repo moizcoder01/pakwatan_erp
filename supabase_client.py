@@ -26,11 +26,20 @@ from flask import session
 from supabase import create_client, Client
 
 from config import SUPABASE_URL, SUPABASE_KEY
+import os
+from supabase import create_client
+
 
 # A single shared anon-key client is safe to reuse — it holds no
 # per-user state until we explicitly attach a session to it.
 _anon_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def get_admin_client():
+    """Service-role Supabase client for privileged admin-only operations
+    (e.g. auth.admin.*). NEVER expose this client or its key to templates/JS."""
+    url = os.environ["https://rjbeadzwfwuchjdydsml.supabase.co"]
+    service_key = os.environ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqYmVhZHp3Znd1Y2hqZHlkc21sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNDE4NDAsImV4cCI6MjEwMDcxNzg0MH0.NIjSSztE2RIfxoPKJo__Tda42HkfmpROPI-aYHEQxC0"]
+    return create_client(url, service_key)
 
 def get_anon_client() -> Client:
     """Client using only the anon key — no logged-in user context."""

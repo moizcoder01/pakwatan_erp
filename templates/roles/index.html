@@ -22,13 +22,15 @@
                     <th>Client Scope</th>
                     <th>Status</th>
                     <th>User ID</th>
+                    <th style="text-align: right;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in profiles %}
                 <tr>
                     <td class="primary" style="display: flex; align-items: center; gap: 10px;">
-                        <span class="badge-ring badge-ring--{{ p.get('role', 'Ops') }}" style="width: 26px; height: 26px; font-size: 0.65rem;">
+                        <span class="badge-ring badge-ring--{{ p.get('role', 'Ops') }}"
+                            style="width: 26px; height: 26px; font-size: 0.65rem;">
                             {{ (p.get('full_name') or '?')[:2].upper() }}
                         </span>
                         {{ p.get('full_name') or '—' }}
@@ -38,27 +40,105 @@
                     </td>
                     <td>
                         {% if p.get('client_id') %}
-                            {{ client_names.get(p.get('client_id'), 'Unknown Client') }}
+                        {{ client_names.get(p.get('client_id'), 'Unknown Client') }}
                         {% else %}
-                            <span style="color: var(--text-muted);">Org-wide</span>
+                        <span style="color: var(--text-muted);">Org-wide</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if p.get('is_active', True) %}
-                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Active</span>
+                        <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Active</span>
                         {% else %}
-                            <span class="status-pill status-pill--slate">Inactive</span>
+                        <span class="status-pill status-pill--slate">Inactive</span>
                         {% endif %}
                     </td>
                     <td class="mono" style="font-size: 0.78rem; color: var(--text-muted);">{{ p.get('id') }}</td>
+                    <td style="text-align: right;">
+                        <button type="button" class="action-btn" data-userid="{{ p.get('id') }}"
+                            data-username="{{ p.get('full_name') or 'this user' }}"
+                            onclick="openChangePasswordModal(this.dataset.userid, this.dataset.username)">
+                            Change Password
+                        </button>
+                    </td>
                 </tr>
                 {% else %}
                 <tr class="empty-row">
-                    <td colspan="5">No user profiles found.</td>
+                    <td colspan="6">No user profiles found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+<!-- Change Password Modal -->
+<div id="changePasswordModal"
+    style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="panel" style="width: 400px; max-width: 90vw;">
+        <div class="panel__header">
+            <h3>Change Password</h3>
+            <span class="count-tag" id="changePasswordTargetName">—</span>
+        </div>
+        <form id="changePasswordForm" method="post" action=""
+            style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;"
+            onsubmit="return validateChangePasswordForm();">
+            <div class="field">
+                <label for="new_password">New Password <span style="color: var(--accent-red);">*</span></label>
+                <input type="password" id="new_password" name="new_password" required minlength="6"
+                    autocomplete="new-password" placeholder="At least 6 characters">
+            </div>
+            <div class="field">
+                <label for="confirm_password">Confirm Password <span style="color: var(--accent-red);">*</span></label>
+                <input type="password" id="confirm_password" name="confirm_password" required minlength="6"
+                    autocomplete="new-password" placeholder="Re-enter password">
+            </div>
+            <p id="changePasswordError" style="display: none; color: var(--accent-red); font-size: 0.82rem; margin: 0;">
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="tab-item" style="border: 1px solid var(--border-hairline);"
+                    onclick="closeChangePasswordModal()">Cancel</button>
+                <button type="submit" class="btn-primary" style="width: auto; padding: 10px 20px;">
+                    Update Password
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openChangePasswordModal(userId, fullName) {
+        const form = document.getElementById('changePasswordForm');
+        form.action = `/admin/users/${userId}/change-password`;
+        document.getElementById('changePasswordTargetName').textContent = fullName;
+        document.getElementById('new_password').value = '';
+        document.getElementById('confirm_password').value = '';
+        document.getElementById('changePasswordError').style.display = 'none';
+        document.getElementById('changePasswordModal').style.display = 'flex';
+    }
+
+    function closeChangePasswordModal() {
+        document.getElementById('changePasswordModal').style.display = 'none';
+    }
+
+    function validateChangePasswordForm() {
+        const pw = document.getElementById('new_password').value;
+        const confirm = document.getElementById('confirm_password').value;
+        const errorEl = document.getElementById('changePasswordError');
+
+        if (pw.length < 6) {
+            errorEl.textContent = 'Password must be at least 6 characters long.';
+            errorEl.style.display = 'block';
+            return false;
+        }
+        if (pw !== confirm) {
+            errorEl.textContent = 'Passwords do not match.';
+            errorEl.style.display = 'block';
+            return false;
+        }
+        return true;
+    }
+
+    document.getElementById('changePasswordModal').addEventListener('click', function (e) {
+        if (e.target === this) closeChangePasswordModal();
+    });
+</script>
 {% endblock %}
