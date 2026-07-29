@@ -28,10 +28,33 @@
             </div>
             <div class="field">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required placeholder="••••••••">
+                <div class="password-input-wrap">
+                    <input type="password" id="password" name="password" required placeholder="••••••••">
+                    <button type="button" class="password-visibility-toggle" id="password-visibility-toggle"
+                        aria-label="Show password" aria-pressed="false" title="Show password">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                            <circle cx="12" cy="12" r="2.75"></circle>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <button type="submit" class="btn-primary">Sign in</button>
         </form>
     </div>
 </div>
+<script>
+    const passwordInput = document.getElementById('password');
+    const passwordToggle = document.getElementById('password-visibility-toggle');
+
+    passwordToggle.addEventListener('click', function () {
+        const isHidden = passwordInput.type === 'password';
+        passwordInput.type = isHidden ? 'text' : 'password';
+        passwordToggle.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+        passwordToggle.setAttribute('title', isHidden ? 'Hide password' : 'Show password');
+        passwordToggle.setAttribute('aria-pressed', String(isHidden));
+        passwordToggle.classList.toggle('is-visible', isHidden);
+        passwordInput.focus();
+    });
+</script>
 {% endblock %}

@@ -31,8 +31,8 @@
     </div>
     <div class="metric-card">
         <div class="metric-card__eyebrow"><span class="led led--teal"></span> Uniforms &amp; Tactical Gear</div>
-        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(uniform_gear_total | default(0)) }}</div>
-        <div class="metric-card__context">Automated gear expenses from the issue log (falls back to manual overhead logged under this category)</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(uniform_gear_total | default(0, true)) }}</div>
+        <div class="metric-card__context">Manual and automated uniform / tactical gear expenses in the selected range</div>
     </div>
     <div class="metric-card">
         <div class="metric-card__eyebrow"><span class="led led--slate"></span> Selected View Total</div>

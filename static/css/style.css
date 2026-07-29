@@ -761,6 +761,52 @@ h4 {
   border-color: var(--accent-amber);
 }
 
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input-wrap input {
+  padding-right: 46px;
+}
+
+.password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.password-visibility-toggle:hover,
+.password-visibility-toggle.is-visible {
+  color: var(--accent-amber);
+}
+
+.password-visibility-toggle:focus-visible {
+  outline: 2px solid var(--accent-amber);
+  outline-offset: 2px;
+}
+
+.password-visibility-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .field select option,
 .form-select option {
   background: var(--bg-panel);

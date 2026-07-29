@@ -414,16 +414,18 @@ def _fetch_uniform_rows(client, filters):
     return ledger
 
 
-def _uniform_gear_total_fallback(client, filters):
-    """Fallback source when the `expenses` table doesn't exist/respond:
-    aggregate uniform/gear spend already logged as manual overhead under
-    the 'Uniforms & Tactical Gear' category. (Not added as separate
-    ledger rows — those entries already appear once, via the manual
-    expense ledger, so this only fixes the KPI total, not double-counts it.)"""
+def _manual_uniform_gear_total(client, filters):
+    """Return manual uniform/gear spend for the selected date range.
+
+    Manual expenses are already included in the unified ledger, so this
+    query only supplies the category KPI.  Use a case-insensitive flexible
+    match because older records may vary slightly in category capitalization
+    or wording (for example, ``Uniforms & Tactical Gear``).
+    """
     rows = _safe_query_rows(
         client.table("manual_expenses")
         .select("amount")
-        .eq("category", "Uniforms & Tactical Gear")
+        .ilike("category", "%Uniform%")
         .gte("expense_date", filters["start_date_value"])
         .lte("expense_date", filters["end_date_value"])
     )
@@ -431,12 +433,11 @@ def _uniform_gear_total_fallback(client, filters):
 
 
 def _fetch_uniform_gear(client, filters):
-    """Returns (ledger_rows, total) with the same fail-over pattern as
-    weapon procurement."""
+    """Return automated uniform/gear ledger rows and their total."""
     if _table_is_queryable(client, "expenses"):
         rows = _fetch_uniform_rows(client, filters)
         return rows, sum(row["amount"] for row in rows)
-    return [], _uniform_gear_total_fallback(client, filters)
+    return [], 0.0
 
 
 def _build_expense_tracker_payload(client, filters):
@@ -444,7 +445,9 @@ def _build_expense_tracker_payload(client, filters):
     manual_rows = _fetch_manual_expense_rows(client, filters)
     payroll_rows = _fetch_payroll_expense_rows(client, filters)
     weapon_rows, weapon_total = _fetch_weapon_procurement(client, filters)
-    uniform_rows, uniform_total = _fetch_uniform_gear(client, filters)
+    uniform_rows, automated_uniform_total = _fetch_uniform_gear(client, filters)
+    manual_uniform_total = _manual_uniform_gear_total(client, filters)
+    uniform_total = manual_uniform_total + automated_uniform_total
 
     combined = manual_rows + payroll_rows + weapon_rows + uniform_rows
     filtered = [row for row in combined if _row_matches_filters(row, filters)]
@@ -458,12 +461,13 @@ def _build_expense_tracker_payload(client, filters):
         "payroll_total": payroll_total,
         "weapon_total": weapon_total,
         "uniform_total": uniform_total,
+        "automated_uniform_total": automated_uniform_total,
     }
-    summary["operational_total"] = payroll_total + weapon_total + uniform_total
+    summary["operational_total"] = payroll_total + weapon_total + automated_uniform_total
     summary["filtered_total"] = sum(row["amount"] for row in filtered)
     # Manual overhead + guard salaries + weapon procurement + uniform/gear,
     # independent of the category/payment/search filters above.
-    summary["total_overhead"] = manual_total + payroll_total + weapon_total + uniform_total
+    summary["total_overhead"] = manual_total + payroll_total + weapon_total + automated_uniform_total
 
     return {
         "ledger_rows": filtered,
