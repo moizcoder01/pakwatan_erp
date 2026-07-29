@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Pakwatan Security ERP{% endblock %}
+{% block title %}{{ dashboard.hero.title }} — Pakwatan Security ERP{% endblock %}
 
 {% block content %}
 <style>
@@ -430,68 +430,35 @@
     </section>
     {% endif %}
 
-    <section class="dashboard-table-grid">
-        <div class="table-panel">
-            <div class="panel__header">
-                <h3>Recent Attendance</h3>
-                <span class="count-tag">{{ dashboard.recent_attendance|length }} entries</span>
-            </div>
-            <table class="ledger">
-                <thead>
-                    <tr><th>Date</th><th>Guard</th><th>Status</th><th>Note</th></tr>
-                </thead>
-                <tbody>
-                    {% for row in dashboard.recent_attendance %}
-                    <tr>
-                        <td class="mono">{{ row.display_date or row.attendance_date or '—' }}</td>
-                        <td class="primary">{{ row.guards.full_name if row.guards else '—' }}</td>
-                        <td>
-                            {% if row.status in ('On Duty', 'Present') %}
-                                <span class="status-pill status-pill--teal">{{ row.status }}</span>
-                            {% elif row.status in ('On Leave', 'Leave') %}
-                                <span class="status-pill status-pill--amber">{{ 'Leave' if row.status == 'Leave' else row.status }}</span>
-                            {% else %}
-                                <span class="status-pill status-pill--red">{{ row.status }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ row.reason_for_absence or '—' }}</td>
-                    </tr>
-                    {% else %}
-                    <tr class="empty-row"><td colspan="4">No attendance records yet.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Recent Attendance panel removed per Dashboard cleanup — attendance now lives only under /payroll/mark-attendance -->
+    <section class="table-panel">
+        <div class="panel__header">
+            <h3>Recent Complaints</h3>
+            <span class="count-tag">{{ dashboard.recent_complaints|length }} entries</span>
         </div>
-
-        <div class="table-panel">
-            <div class="panel__header">
-                <h3>Recent Complaints</h3>
-                <span class="count-tag">{{ dashboard.recent_complaints|length }} entries</span>
-            </div>
-            <table class="ledger">
-                <thead>
-                    <tr><th>Logged</th><th>Client</th><th>Details</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                    {% for row in dashboard.recent_complaints %}
-                    <tr>
-                        <td class="mono">{{ row.logged_at[:10] if row.logged_at else '—' }}</td>
-                        <td class="primary">{{ row.clients.client_name if row.clients else '—' }}</td>
-                        <td>{{ (row.complaint_details or '—')[:68] }}{{ '…' if row.complaint_details and row.complaint_details|length > 68 }}</td>
-                        <td>
-                            {% if row.resolution_status == 'Resolved' %}
-                                <span class="status-pill status-pill--teal">Resolved</span>
-                            {% else %}
-                                <span class="status-pill status-pill--red">Unresolved</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr class="empty-row"><td colspan="4">No complaints logged yet.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <table class="ledger">
+            <thead>
+                <tr><th>Logged</th><th>Client</th><th>Details</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for row in dashboard.recent_complaints %}
+                <tr>
+                    <td class="mono">{{ row.logged_at[:10] if row.logged_at else '—' }}</td>
+                    <td class="primary">{{ row.clients.client_name if row.clients else '—' }}</td>
+                    <td>{{ (row.complaint_details or '—')[:68] }}{{ '…' if row.complaint_details and row.complaint_details|length > 68 }}</td>
+                    <td>
+                        {% if row.resolution_status == 'Resolved' %}
+                            <span class="status-pill status-pill--teal">Resolved</span>
+                        {% else %}
+                            <span class="status-pill status-pill--red">Unresolved</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="empty-row"><td colspan="4">No complaints logged yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </section>
 
     {% if dashboard.recent_advances is not none %}
@@ -534,7 +501,7 @@
 <script>
     (function () {
         var chartState = { expense: null, trend: null };
-        var chartPayload = {{ dashboard.charts|tojson }};
+        var chartPayload = JSON.parse('{{ dashboard.charts|tojson|safe }}');
 
         function cssVar(name) {
             return getComputedStyle(document.documentElement).getPropertyValue(name).trim();

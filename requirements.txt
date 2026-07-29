@@ -4,3 +4,4 @@
 flask==3.0.3
 supabase==2.7.4
 python-dotenv==1.0.1
+reportlab==4.2.5

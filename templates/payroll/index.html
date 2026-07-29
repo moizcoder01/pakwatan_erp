@@ -3,28 +3,40 @@
 {% block title %}Automated Payroll Ledger — Pakwatan Security ERP{% endblock %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+<div class="page-header"
+    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
     <div>
         <h1>Automated Payroll &amp; Salary Ledger</h1>
         <p>Manage monthly guard payroll disbursements, net salary calculations, and payment tracking.</p>
     </div>
     <div style="display: flex; gap: 10px;">
-        <a href="{{ url_for('finance.export_payroll_csv') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
-            Export CSV
-        </a>
-        <a href="{{ url_for('payroll.mark_attendance') }}" class="tab-item" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
+        <form method="get" action="{{ url_for('finance.export_payroll') }}"
+            style="display: inline-flex; gap: 6px; align-items: center;">
+            {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+            {% if month_filter %}<input type="hidden" name="month" value="{{ month_filter }}">{% endif %}
+            <select name="format" class="form-select" style="width: auto; padding: 8px 10px; font-size: 0.8rem;">
+                <option value="csv">CSV</option>
+                <option value="pdf">PDF</option>
+            </select>
+            <button type="submit" class="tab-item" style="border: none; cursor: pointer;">Export</button>
+        </form>
+        <a href="{{ url_for('payroll.mark_attendance') }}" class="tab-item"
+            style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 16px;">
             Log Daily Attendance
         </a>
-        <a href="{{ url_for('payroll.generate') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px;">
+        <a href="{{ url_for('payroll.generate') }}" class="btn-primary"
+            style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px;">
             <span>+</span> Generate Payslip
         </a>
     </div>
 </div>
 
 <!-- Financial Summary Widgets -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+<div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
     <div class="panel" style="padding: 16px 20px;">
-        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+        <div
+            style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
             Total Payroll Expense
         </div>
         <div class="mono" style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">
@@ -32,7 +44,8 @@
         </div>
     </div>
     <div class="panel" style="padding: 16px 20px;">
-        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+        <div
+            style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
             Disbursed (Paid)
         </div>
         <div class="mono" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-teal);">
@@ -40,7 +53,8 @@
         </div>
     </div>
     <div class="panel" style="padding: 16px 20px;">
-        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
+        <div
+            style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">
             Pending Payment
         </div>
         <div class="mono" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-amber);">
@@ -51,28 +65,38 @@
 
 <!-- Status Filter Tabs -->
 <div class="filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
-    <a href="{{ url_for('payroll.index') }}" 
-       class="tab-item {{ 'active' if not status_filter }}">
+    <a href="{{ url_for('payroll.index') }}" class="tab-item {{ 'active' if not status_filter }}">
         All Payrolls <span class="tab-badge">{{ counts.All }}</span>
     </a>
-    <a href="{{ url_for('payroll.index', status='Pending') }}" 
-       class="tab-item {{ 'active' if status_filter == 'Pending' }}">
+    <a href="{{ url_for('payroll.index', status='Pending') }}"
+        class="tab-item {{ 'active' if status_filter == 'Pending' }}">
         <span class="led led--amber"></span> Pending Payment <span class="tab-badge">{{ counts.Pending }}</span>
     </a>
-    <a href="{{ url_for('payroll.index', status='Paid') }}" 
-       class="tab-item {{ 'active' if status_filter == 'Paid' }}">
+    <a href="{{ url_for('payroll.index', status='Paid') }}" class="tab-item {{ 'active' if status_filter == 'Paid' }}">
         <span class="led led--teal"></span> Paid Slips <span class="tab-badge">{{ counts.Paid }}</span>
     </a>
 </div>
+
+<form method="get" action="{{ url_for('payroll.index') }}"
+    style="display: inline-flex; gap: 8px; align-items: center; margin-bottom: 16px;">
+    {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+    <input type="month" name="month_value" value="{{ month_value_display }}"
+        style="padding: 8px 10px; font-size: 0.82rem;">
+    <button type="submit" class="tab-item" style="border: none; cursor: pointer;">Filter by Month</button>
+    {% if month_filter %}
+    <a href="{{ url_for('payroll.index', status=status_filter) }}" class="tab-item" style="text-decoration: none;">Clear
+        ({{ month_filter }})</a>
+    {% endif %}
+</form>
 
 <!-- Payroll Ledger Table -->
 <div class="panel">
     <div class="panel__header">
         <h3>
             {% if status_filter %}
-                {{ status_filter }} Salary Slips
+            {{ status_filter }} Salary Slips
             {% else %}
-                All Guard Salary Ledger Slips
+            All Guard Salary Ledger Slips
             {% endif %}
         </h3>
         <span class="count-tag">{{ payrolls|length }} Record(s)</span>
@@ -117,22 +141,27 @@
                     </td>
                     <td>
                         {% if p.status == 'Paid' %}
-                            <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Paid</span>
+                        <span class="status-pill status-pill--teal"><span class="led led--teal"></span> Paid</span>
                         {% else %}
-                            <span class="status-pill status-pill--amber"><span class="led led--amber"></span> Pending</span>
+                        <span class="status-pill status-pill--amber"><span class="led led--amber"></span> Pending</span>
                         {% endif %}
                     </td>
                     <td style="text-align: right;">
-                        {% if p.status == 'Pending' %}
-                        <a href="{{ url_for('payroll.pay', payroll_id=p.id) }}" 
-                           class="action-btn"
-                           onclick="return confirm('Mark this salary slip as Paid?');"
-                           title="Mark Salary as Paid">
-                            Mark Paid
-                        </a>
-                        {% else %}
-                        <span style="color: var(--accent-teal); font-size: 0.8rem; font-family: var(--font-mono);">✓ Cleared</span>
-                        {% endif %}
+                        <div style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;">
+                            {% if p.status == 'Pending' %}
+                            <a href="{{ url_for('payroll.pay', payroll_id=p.id) }}" class="action-btn"
+                                onclick="return confirm('Mark this salary slip as Paid?');" title="Mark Salary as Paid">
+                                Mark Paid
+                            </a>
+                            {% else %}
+                            <span style="color: var(--accent-teal); font-size: 0.8rem; font-family: var(--font-mono);">✓
+                                Cleared</span>
+                            {% endif %}
+                            <a href="{{ url_for('finance.export_payslip', payroll_id=p.id, format='pdf') }}"
+                                class="action-btn" title="Download Payslip PDF">Payslip</a>
+                            <a href="{{ url_for('finance.export_payslip', payroll_id=p.id, format='csv') }}"
+                                class="action-btn" title="Download Payslip CSV">CSV</a>
+                        </div>
                     </td>
                 </tr>
                 {% else %}

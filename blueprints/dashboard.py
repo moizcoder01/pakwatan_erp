@@ -54,44 +54,6 @@ def _client_guard_ids(client, client_id):
     return [row["id"] for row in rows]
 
 
-def _normalize_attendance_row(row):
-    normalized = dict(row)
-    normalized["display_date"] = normalized.get("attendance_date") or normalized.get("date")
-    return normalized
-
-
-def _recent_attendance(client, guard_ids=None, limit=8):
-    select_with_active = (
-        "id, attendance_date, status, reason_for_absence, overtime_hours, "
-        "guards!inner(full_name, guard_id, is_active)"
-    )
-    select_basic = (
-        "id, attendance_date, status, reason_for_absence, overtime_hours, "
-        "guards(full_name, guard_id)"
-    )
-
-    for select_cols, filter_active in ((select_with_active, True), (select_basic, False)):
-        try:
-            query = (
-                client.table("attendance")
-                .select(select_cols)
-                .order("attendance_date", desc=True)
-                .limit(limit)
-            )
-            if filter_active:
-                query = query.eq("guards.is_active", True)
-            if guard_ids is not None:
-                if not guard_ids:
-                    return []
-                query = query.in_("guard_id", guard_ids)
-            rows = query.execute().data or []
-            return [_normalize_attendance_row(row) for row in rows]
-        except Exception:
-            continue
-
-    return []
-
-
 def _recent_complaints(client, client_id=None, limit=6):
     query = (
         client.table("complaints")
@@ -453,7 +415,6 @@ def _admin_dashboard_payload(client):
                 "count": unassigned_guards,
             },
         ],
-        "recent_attendance": _recent_attendance(client),
         "recent_complaints": _recent_complaints(client),
         "recent_advances": _recent_salary_advances(client),
     }
@@ -508,7 +469,6 @@ def _client_dashboard_payload(client, client_id):
         "charts": None,
         "armory": None,
         "alerts": [],
-        "recent_attendance": _recent_attendance(client, guard_ids=metrics["guard_ids"]),
         "recent_complaints": _recent_complaints(client, client_id=client_id),
         "recent_advances": None,
     }

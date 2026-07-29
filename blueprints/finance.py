@@ -13,6 +13,7 @@ Routes:
 
 import csv
 from datetime import date, datetime, timedelta
+from pdf_utils import build_ledger_pdf, build_payslip_pdf
 from io import StringIO
 
 from flask import (
@@ -41,6 +42,74 @@ EXPENSE_CATEGORIES = (
 )
 
 PAYMENT_METHODS = ("Cash", "Bank Transfer")
+
+@finance_bp.route("/export/payslip/<payroll_id>")
+@login_required
+def export_payslip(payroll_id):
+    client = get_session_client()
+    export_format = request.args.get("format", "pdf").strip().lower()
+
+    try:
+        res = (
+            client.table("payroll")
+            .select("id, guard_id, month, base_salary, bonus, deductions, net_salary, status, "
+                    "guards(guard_id, full_name, cnic, phone)")
+            .eq("id", payroll_id).limit(1).execute()
+        )
+        rows = res.data or []
+    except Exception as e:
+        flash(f"Failed to load payslip: {e}", "error")
+        return redirect(url_for("payroll.index"))
+
+    if not rows:
+        flash("Payslip record not found.", "error")
+        return redirect(url_for("payroll.index"))
+
+    p = rows[0]
+    guard = p.get("guards") or {}
+
+    pending_advances = []
+    if p.get("guard_id"):
+        try:
+            adv_res = (
+                client.table("salary_advances")
+                .select("amount, reason, advance_date")
+                .eq("guard_id", p["guard_id"]).eq("is_deducted", False).execute()
+            )
+            pending_advances = adv_res.data or []
+        except Exception:
+            pass
+
+    safe_month = (p.get("month") or "").replace(" ", "_") or "unknown"
+    base_filename = f"payslip_{guard.get('guard_id') or payroll_id}_{safe_month}"
+
+    if export_format == "csv":
+        buffer = StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["Field", "Value"])
+        writer.writerow(["Guard ID", guard.get("guard_id") or "—"])
+        writer.writerow(["Guard Name", guard.get("full_name") or "—"])
+        writer.writerow(["CNIC", guard.get("cnic") or "—"])
+        writer.writerow(["Phone", guard.get("phone") or "—"])
+        writer.writerow(["Month", p.get("month") or "—"])
+        writer.writerow(["Base Salary", f"{_safe_float(p.get('base_salary')):.2f}"])
+        writer.writerow(["Bonus", f"{_safe_float(p.get('bonus')):.2f}"])
+        writer.writerow(["Deductions", f"{_safe_float(p.get('deductions')):.2f}"])
+        writer.writerow(["Net Salary", f"{_safe_float(p.get('net_salary')):.2f}"])
+        writer.writerow(["Status", p.get("status") or "—"])
+        return Response(buffer.getvalue(), mimetype="text/csv",
+                         headers={"Content-Disposition": f"attachment; filename={base_filename}.csv"})
+
+    buffer = build_payslip_pdf(
+        guard_name=guard.get("full_name") or "—", guard_code=guard.get("guard_id") or "—",
+        cnic=guard.get("cnic") or "—", phone=guard.get("phone") or "—",
+        month_label=p.get("month") or "—", base_salary=_safe_float(p.get("base_salary")),
+        bonus=_safe_float(p.get("bonus")), deductions=_safe_float(p.get("deductions")),
+        net_salary=_safe_float(p.get("net_salary")), status=p.get("status") or "Pending",
+        pending_advances=pending_advances,
+    )
+    return Response(buffer.getvalue(), mimetype="application/pdf",
+                     headers={"Content-Disposition": f"attachment; filename={base_filename}.pdf"})
 
 
 def _safe_float(value, default=0.0):
@@ -571,6 +640,33 @@ def invoices():
             return redirect(url_for("finance.invoices"))
 
     status_filter = request.args.get("status", "").strip()
+    client_filter = request.args.get("client_id", "").strip()
+    month_filter = request.args.get("month", "").strip()  # "YYYY-MM"
+
+    query = (
+        client.table("invoices")
+        .select(
+            "id, client_id, invoice_number, amount, issue_date, due_date, status, created_at, "
+            "clients(id, client_name, company_name, phone)"
+        )
+        .order("created_at", desc=True)
+    )
+    if status_filter:
+        query = query.eq("status", status_filter)
+    if client_filter:
+        query = query.eq("client_id", client_filter)
+    if month_filter:
+        try:
+            month_start = datetime.strptime(month_filter, "%Y-%m").date()
+            month_end = (
+                month_start.replace(year=month_start.year + 1, month=1)
+                if month_start.month == 12
+                else month_start.replace(month=month_start.month + 1)
+            ) - timedelta(days=1)
+            query = query.gte("issue_date", month_start.isoformat()).lte("issue_date", month_end.isoformat())
+        except ValueError:
+            month_filter = ""
+
     query = (
         client.table("invoices")
         .select(
@@ -623,6 +719,8 @@ def invoices():
         default_invoice_number=default_invoice_number,
         default_issue=default_issue,
         default_due=default_due,
+        client_filter=client_filter,
+        month_filter=month_filter,
     )
 
 
@@ -638,68 +736,227 @@ def mark_invoice_paid(invoice_id):
     return redirect(url_for("finance.invoices"))
 
 
-@finance_bp.route("/export/payroll/csv")
-@login_required
-def export_payroll_csv():
-    """Stream the full payroll ledger as a downloadable CSV file."""
-    client = get_session_client()
-
-    try:
-        res = (
-            client.table("payroll")
-            .select(
-                "id, month, base_salary, bonus, deductions, net_salary, status, created_at, "
-                "guards(guard_id, full_name, cnic, phone)"
-            )
-            .order("created_at", desc=True)
-            .execute()
+def _build_payroll_export_rows(client, status_filter="", month_filter=""):
+    query = (
+        client.table("payroll")
+        .select(
+            "id, month, base_salary, bonus, deductions, net_salary, status, created_at, "
+            "guards(guard_id, full_name, cnic, phone)"
         )
-        rows = res.data or []
-    except Exception as e:
-        flash(f"Failed to export payroll CSV: {e}", "error")
-        return redirect(url_for("finance.dashboard"))
+        .order("created_at", desc=True)
+    )
+    if status_filter:
+        query = query.eq("status", status_filter)
+    if month_filter:
+        query = query.eq("month", month_filter)
+    return _safe_query_rows(query)
+
+
+@finance_bp.route("/export/payroll")
+@login_required
+def export_payroll():
+    """Unified payroll export — ?format=csv (default) or ?format=pdf."""
+    client = get_session_client()
+    export_format = request.args.get("format", "csv").strip().lower()
+    status_filter = request.args.get("status", "").strip()
+    month_filter = request.args.get("month", "").strip()
+
+    rows = _build_payroll_export_rows(client, status_filter, month_filter)
+
+    if export_format == "pdf":
+        columns = ["Guard ID", "Guard Name", "Month", "Base", "Bonus", "Deductions", "Net Salary", "Status"]
+        table_rows = []
+        for p in rows:
+            guard = p.get("guards") or {}
+            table_rows.append([
+                guard.get("guard_id") or "—", guard.get("full_name") or "—", p.get("month") or "—",
+                f"Rs. {_safe_float(p.get('base_salary')):,.2f}",
+                f"Rs. {_safe_float(p.get('bonus')):,.2f}",
+                f"Rs. {_safe_float(p.get('deductions')):,.2f}",
+                f"Rs. {_safe_float(p.get('net_salary')):,.2f}",
+                p.get("status") or "—",
+            ])
+        subtitle_bits = []
+        if month_filter:
+            subtitle_bits.append(f"Month: {month_filter}")
+        if status_filter:
+            subtitle_bits.append(f"Status: {status_filter}")
+        subtitle = " · ".join(subtitle_bits) or "All recorded payslips"
+
+        buffer = build_ledger_pdf(title="Payroll Ledger", subtitle=subtitle, columns=columns, rows=table_rows)
+        filename = f"pakwatan_payroll_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        return Response(buffer.getvalue(), mimetype="application/pdf",
+                         headers={"Content-Disposition": f"attachment; filename={filename}"})
 
     buffer = StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(
-        [
-            "Payslip ID",
-            "Guard ID",
-            "Guard Name",
-            "CNIC",
-            "Phone",
-            "Month",
-            "Base Salary",
-            "Bonus",
-            "Deductions",
-            "Net Salary",
-            "Status",
-            "Created At",
-        ]
-    )
-
+    writer.writerow(["Payslip ID", "Guard ID", "Guard Name", "CNIC", "Phone", "Month",
+                      "Base Salary", "Bonus", "Deductions", "Net Salary", "Status", "Created At"])
     for p in rows:
         guard = p.get("guards") or {}
-        writer.writerow(
-            [
-                p.get("id") or "",
-                guard.get("guard_id") or "",
-                guard.get("full_name") or "",
-                guard.get("cnic") or "",
-                guard.get("phone") or "",
-                p.get("month") or "",
-                f"{_safe_float(p.get('base_salary')):.2f}",
-                f"{_safe_float(p.get('bonus')):.2f}",
-                f"{_safe_float(p.get('deductions')):.2f}",
-                f"{_safe_float(p.get('net_salary')):.2f}",
-                p.get("status") or "",
-                p.get("created_at") or "",
-            ]
-        )
-
+        writer.writerow([
+            p.get("id") or "", guard.get("guard_id") or "", guard.get("full_name") or "",
+            guard.get("cnic") or "", guard.get("phone") or "", p.get("month") or "",
+            f"{_safe_float(p.get('base_salary')):.2f}", f"{_safe_float(p.get('bonus')):.2f}",
+            f"{_safe_float(p.get('deductions')):.2f}", f"{_safe_float(p.get('net_salary')):.2f}",
+            p.get("status") or "", p.get("created_at") or "",
+        ])
     filename = f"pakwatan_payroll_ledger_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    return Response(
-        buffer.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    return Response(buffer.getvalue(), mimetype="text/csv",
+                     headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+@finance_bp.route("/export/payroll/csv")
+@login_required
+def export_payroll_csv():
+    """Kept for backward compatibility with existing template links."""
+    return redirect(url_for("finance.export_payroll", format="csv",
+                             status=request.args.get("status", ""), month=request.args.get("month", "")))
+
+
+
+@finance_bp.route("/export/invoices")
+@login_required
+def export_invoices():
+    """Invoice ledger export — bulk, or scoped to one client/month, ?format=csv|pdf."""
+    client = get_session_client()
+    export_format = request.args.get("format", "csv").strip().lower()
+    status_filter = request.args.get("status", "").strip()
+    client_filter = request.args.get("client_id", "").strip()
+    month_filter = request.args.get("month", "").strip()
+
+    query = (
+        client.table("invoices")
+        .select("id, invoice_number, amount, issue_date, due_date, status, created_at, "
+                "clients(client_name, company_name, phone)")
+        .order("created_at", desc=True)
     )
+    if status_filter:
+        query = query.eq("status", status_filter)
+    if client_filter:
+        query = query.eq("client_id", client_filter)
+    if month_filter:
+        try:
+            month_start = datetime.strptime(month_filter, "%Y-%m").date()
+            month_end = (
+                month_start.replace(year=month_start.year + 1, month=1)
+                if month_start.month == 12
+                else month_start.replace(month=month_start.month + 1)
+            ) - timedelta(days=1)
+            query = query.gte("issue_date", month_start.isoformat()).lte("issue_date", month_end.isoformat())
+        except ValueError:
+            month_filter = ""
+
+    rows = _safe_query_rows(query)
+
+    client_label = None
+    if client_filter:
+        if rows:
+            client_label = (rows[0].get("clients") or {}).get("client_name")
+        else:
+            try:
+                c_res = client.table("clients").select("client_name").eq("id", client_filter).limit(1).execute()
+                if c_res.data:
+                    client_label = c_res.data[0].get("client_name")
+            except Exception:
+                pass
+
+    subtitle_bits = []
+    if client_label:
+        subtitle_bits.append(f"Client: {client_label}")
+    if month_filter:
+        subtitle_bits.append(f"Month: {month_filter}")
+    if status_filter:
+        subtitle_bits.append(f"Status: {status_filter}")
+    subtitle = " · ".join(subtitle_bits) or "All client invoices"
+    title = f"{client_label} — Invoice Ledger" if client_label else "Client Invoice Ledger"
+    filename_stub = "pakwatan_invoices" + (f"_{client_label.replace(' ', '_')}" if client_label else "")
+
+    if export_format == "pdf":
+        columns = ["Invoice #", "Client", "Amount", "Issue Date", "Due Date", "Status"]
+        table_rows = []
+        for inv in rows:
+            c = inv.get("clients") or {}
+            table_rows.append([
+                inv.get("invoice_number") or "—", c.get("client_name") or "—",
+                f"Rs. {_safe_float(inv.get('amount')):,.2f}",
+                inv.get("issue_date") or "—", inv.get("due_date") or "—", inv.get("status") or "—",
+            ])
+        buffer = build_ledger_pdf(title=title, subtitle=subtitle, columns=columns, rows=table_rows)
+        filename = f"{filename_stub}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        return Response(buffer.getvalue(), mimetype="application/pdf",
+                         headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Invoice ID", "Invoice #", "Client", "Company", "Phone", "Amount",
+                      "Issue Date", "Due Date", "Status", "Created At"])
+    for inv in rows:
+        c = inv.get("clients") or {}
+        writer.writerow([
+            inv.get("id") or "", inv.get("invoice_number") or "", c.get("client_name") or "",
+            c.get("company_name") or "", c.get("phone") or "", f"{_safe_float(inv.get('amount')):.2f}",
+            inv.get("issue_date") or "", inv.get("due_date") or "", inv.get("status") or "", inv.get("created_at") or "",
+        ])
+    filename = f"{filename_stub}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(buffer.getvalue(), mimetype="text/csv",
+                     headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+@finance_bp.route("/export/invoice/<invoice_id>")
+@login_required
+def export_single_invoice(invoice_id):
+    """Export exactly one invoice as a formatted PDF or CSV."""
+    client = get_session_client()
+    export_format = request.args.get("format", "pdf").strip().lower()
+
+    try:
+        res = (
+            client.table("invoices")
+            .select("id, invoice_number, amount, issue_date, due_date, status, "
+                    "clients(client_name, company_name, phone)")
+            .eq("id", invoice_id).limit(1).execute()
+        )
+        rows = res.data or []
+    except Exception as e:
+        flash(f"Failed to load invoice: {e}", "error")
+        return redirect(url_for("finance.invoices"))
+
+    if not rows:
+        flash("Invoice not found.", "error")
+        return redirect(url_for("finance.invoices"))
+
+    inv = rows[0]
+    c = inv.get("clients") or {}
+    base_filename = f"invoice_{inv.get('invoice_number') or invoice_id}"
+
+    if export_format == "csv":
+        buffer = StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["Field", "Value"])
+        writer.writerow(["Invoice #", inv.get("invoice_number") or "—"])
+        writer.writerow(["Client", c.get("client_name") or "—"])
+        writer.writerow(["Company", c.get("company_name") or "—"])
+        writer.writerow(["Phone", c.get("phone") or "—"])
+        writer.writerow(["Amount", f"{_safe_float(inv.get('amount')):.2f}"])
+        writer.writerow(["Issue Date", inv.get("issue_date") or "—"])
+        writer.writerow(["Due Date", inv.get("due_date") or "—"])
+        writer.writerow(["Status", inv.get("status") or "—"])
+        return Response(buffer.getvalue(), mimetype="text/csv",
+                         headers={"Content-Disposition": f"attachment; filename={base_filename}.csv"})
+
+    columns = ["Field", "Value"]
+    table_rows = [
+        ["Invoice #", inv.get("invoice_number") or "—"],
+        ["Client", c.get("client_name") or "—"],
+        ["Company", c.get("company_name") or "—"],
+        ["Amount", f"Rs. {_safe_float(inv.get('amount')):,.2f}"],
+        ["Issue Date", inv.get("issue_date") or "—"],
+        ["Due Date", inv.get("due_date") or "—"],
+        ["Status", inv.get("status") or "—"],
+    ]
+    buffer = build_ledger_pdf(title=f"Invoice {inv.get('invoice_number') or ''}",
+                               subtitle=c.get("client_name") or "Client invoice",
+                               columns=columns, rows=table_rows)
+    return Response(buffer.getvalue(), mimetype="application/pdf",
+                     headers={"Content-Disposition": f"attachment; filename={base_filename}.pdf"})

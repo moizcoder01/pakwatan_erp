@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Generate Monthly Payslip — Pakwatan Security ERP{% endblock %}
+{% block title %}Generate Payroll — Pakwatan Security ERP{% endblock %}
 
 {% block content %}
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
     <div>
-        <h1>Generate Monthly Salary Slip</h1>
-        <p>Auto-calculate net salary based on base pay, bonuses, and operational deductions.</p>
+        <h1>Generate Payroll</h1>
+        <p>Run company-wide monthly payroll for all active guards, or generate a standalone payslip for one guard.</p>
     </div>
     <div>
         <a href="{{ url_for('payroll.index') }}" class="logout-link" style="text-decoration: none;">
@@ -15,20 +15,56 @@
     </div>
 </div>
 
-<div class="panel" style="max-width: 760px; margin: 0 auto;">
+<div class="panel" style="max-width: 780px; margin: 0 auto;">
     <div class="panel__header">
-        <h3>Salary Calculation Form</h3>
-        <span class="count-tag">New Payslip</span>
+        <h3>Payroll Generation</h3>
+        <span class="count-tag">New Run</span>
     </div>
 
     <form action="{{ url_for('payroll.generate') }}" method="post" style="padding: 24px 28px;">
-        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;">
-            
-            <!-- Guard Selection Dropdown -->
-            <div class="field" style="grid-column: 1 / -1;">
-                <label for="guard_id">Select Security Guard <span style="color: var(--accent-red);">*</span></label>
-                <select id="guard_id" name="guard_id" class="form-select" onchange="updateBaseSalary(this)" required>
-                    <option value="" data-salary="0">-- Choose Security Guard --</option>
+
+        <div class="field">
+            <label>Generation Mode</label>
+            <div style="display: flex; gap: 12px; margin-top: 6px;">
+                <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                    <input type="radio" name="mode" value="bulk" id="modeBulk"
+                        {% if form_data.get('mode', 'bulk') == 'bulk' %}checked{% endif %} onclick="toggleMode()">
+                    Bulk (All Active Guards)
+                </label>
+                <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                    <input type="radio" name="mode" value="custom" id="modeCustom"
+                        {% if form_data.get('mode') == 'custom' %}checked{% endif %} onclick="toggleMode()">
+                    Custom / Individual
+                </label>
+            </div>
+        </div>
+
+        <div class="field">
+            <label for="month_value">Payroll Month <span style="color: var(--accent-red);">*</span></label>
+            <input type="month" id="month_value" name="month_value"
+                   value="{{ form_data.get('month_value', default_month_value) }}"
+                   max="{{ default_month_value }}" required>
+            <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">
+                Pick a past month to process missed payroll, or the current month for this cycle's run.
+            </div>
+        </div>
+
+        <div id="bulkFields">
+            <div class="field" style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="auto_apply_advances" name="auto_apply_advances" checked style="width: auto;">
+                <label for="auto_apply_advances" style="margin: 0;">Auto-apply pending salary advances as deductions</label>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 10px 14px;">
+                Generates a <strong>Pending</strong> payslip for every active guard without an existing payroll
+                record for the selected month. Already-processed guards are skipped automatically — safe to re-run.
+            </p>
+        </div>
+
+        <div id="customFields" style="display: none;">
+            <div class="field">
+                <label for="guard_id">Select Guard <span style="color: var(--accent-red);">*</span></label>
+                <select id="guard_id" name="guard_id" class="form-select" onchange="updateBaseSalary(this)">
+                    <option value="" data-salary="0">-- Choose Guard (including inactive/offboarding) --</option>
                     {% for g in guards %}
                     <option value="{{ g.id }}" data-salary="{{ g.base_salary or 30000 }}" {% if form_data.get('guard_id') == g.id %}selected{% endif %}>
                         {% if g.guard_id %}[{{ g.guard_id }}] {% endif %}{{ g.full_name }} — Base: Rs. {{ "{:,.2f}".format(g.base_salary or 30000) }}
@@ -37,13 +73,6 @@
                 </select>
             </div>
 
-            <!-- Pay Month -->
-            <div class="field">
-                <label for="month">Salary Month <span style="color: var(--accent-red);">*</span></label>
-                <input type="text" id="month" name="month" value="{{ form_data.get('month', default_month) }}" placeholder="e.g. July 2026" required>
-            </div>
-
-            <!-- Payment Status -->
             <div class="field">
                 <label for="status">Initial Status</label>
                 <select id="status" name="status" class="form-select">
@@ -52,62 +81,53 @@
                 </select>
             </div>
 
-            <!-- Base Salary -->
-            <div class="field">
-                <label for="base_salary">Base Salary (PKR)</label>
-                <input type="number" step="500" id="base_salary" name="base_salary" value="{{ form_data.get('base_salary', '30000') }}" oninput="calculateNet()" placeholder="30000">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div class="field">
+                    <label for="base_salary">Base Salary (PKR)</label>
+                    <input type="number" step="500" id="base_salary" name="base_salary" value="{{ form_data.get('base_salary', '30000') }}" oninput="calculateNet()">
+                </div>
+                <div class="field">
+                    <label for="bonus">Bonus / Overtime (PKR)</label>
+                    <input type="number" step="100" id="bonus" name="bonus" value="{{ form_data.get('bonus', '0') }}" oninput="calculateNet()">
+                </div>
+                <div class="field">
+                    <label for="deductions">Deductions / Advances (PKR)</label>
+                    <input type="number" step="100" id="deductions" name="deductions" value="{{ form_data.get('deductions', '0') }}" oninput="calculateNet()">
+                </div>
             </div>
 
-            <!-- Bonus / Allowances -->
-            <div class="field">
-                <label for="bonus">Bonus / Overtime (PKR)</label>
-                <input type="number" step="100" id="bonus" name="bonus" value="{{ form_data.get('bonus', '0') }}" oninput="calculateNet()" placeholder="0">
-            </div>
-
-            <!-- Deductions -->
-            <div class="field" style="grid-column: 1 / -1;">
-                <label for="deductions">Deductions / Advances (PKR)</label>
-                <input type="number" step="100" id="deductions" name="deductions" value="{{ form_data.get('deductions', '0') }}" oninput="calculateNet()" placeholder="0">
-            </div>
-
-        </div>
-
-        <!-- Calculated Net Salary Box -->
-        <div style="background: var(--bg-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 16px 20px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-size: 0.88rem; color: var(--text-secondary);">
-                Calculated Net Salary:
-            </div>
-            <div id="net_salary_display" class="mono" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-teal);">
-                Rs. 30,000.00
+            <div style="background: var(--bg-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 16px 20px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 0.88rem; color: var(--text-secondary);">Calculated Net Salary:</div>
+                <div id="net_salary_display" class="mono" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-teal);">Rs. 30,000.00</div>
             </div>
         </div>
 
         <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; border-top: 1px solid var(--border-hairline); padding-top: 18px;">
             <a href="{{ url_for('payroll.index') }}" class="logout-link" style="text-decoration: none;">Cancel</a>
-            <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;">Generate &amp; Save Payslip</button>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;">Run Payroll Generation</button>
         </div>
     </form>
 </div>
 
 <script>
+function toggleMode() {
+    const isBulk = document.getElementById('modeBulk').checked;
+    document.getElementById('bulkFields').style.display = isBulk ? 'block' : 'none';
+    document.getElementById('customFields').style.display = isBulk ? 'none' : 'block';
+    document.getElementById('guard_id').required = !isBulk;
+}
 function updateBaseSalary(selectElem) {
-    const selectedOption = selectElem.options[selectElem.selectedIndex];
-    const baseSal = selectedOption.getAttribute('data-salary');
-    if (baseSal && baseSal > 0) {
-        document.getElementById('base_salary').value = baseSal;
-    }
+    const baseSal = selectElem.options[selectElem.selectedIndex].getAttribute('data-salary');
+    if (baseSal && baseSal > 0) document.getElementById('base_salary').value = baseSal;
     calculateNet();
 }
-
 function calculateNet() {
     const base = parseFloat(document.getElementById('base_salary').value) || 0;
     const bonus = parseFloat(document.getElementById('bonus').value) || 0;
     const ded = parseFloat(document.getElementById('deductions').value) || 0;
-    const net = base + bonus - ded;
-    
-    document.getElementById('net_salary_display').innerText = 'Rs. ' + net.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('net_salary_display').innerText =
+        'Rs. ' + (base + bonus - ded).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
-
-document.addEventListener('DOMContentLoaded', calculateNet);
+document.addEventListener('DOMContentLoaded', function () { toggleMode(); calculateNet(); });
 </script>
 {% endblock %}
