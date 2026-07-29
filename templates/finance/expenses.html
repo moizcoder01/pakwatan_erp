@@ -21,23 +21,23 @@
 <div class="metric-grid">
     <div class="metric-card">
         <div class="metric-card__eyebrow"><span class="led led--amber"></span> Guard Salaries</div>
-        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(summary.payroll_total) }}</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(guard_salaries_total | default(0)) }}</div>
         <div class="metric-card__context">Automated payroll cost in selected range</div>
     </div>
     <div class="metric-card">
         <div class="metric-card__eyebrow"><span class="led led--red"></span> Weapon Procurements</div>
-        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(summary.weapon_total) }}</div>
-        <div class="metric-card__context">Capital expenditure from `weapon_purchases`</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(weapon_procurements_total | default(0)) }}</div>
+        <div class="metric-card__context">Capital expenditure from `weapon_purchases` (falls back to the `weapons` armory table if unavailable)</div>
     </div>
     <div class="metric-card">
         <div class="metric-card__eyebrow"><span class="led led--teal"></span> Uniforms &amp; Tactical Gear</div>
-        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(summary.uniform_total) }}</div>
-        <div class="metric-card__context">Automated gear expenses from existing issue log</div>
+        <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(uniform_gear_total | default(0)) }}</div>
+        <div class="metric-card__context">Automated gear expenses from the issue log (falls back to manual overhead logged under this category)</div>
     </div>
     <div class="metric-card">
         <div class="metric-card__eyebrow"><span class="led led--slate"></span> Selected View Total</div>
         <div class="metric-card__value mono">Rs {{ "{:,.0f}".format(summary.filtered_total) }}</div>
-        <div class="metric-card__context">Manual + automated expense overhead after filters</div>
+        <div class="metric-card__context">Manual + automated expense overhead after filters · unfiltered total: Rs {{ "{:,.0f}".format(total_overhead | default(0)) }}</div>
     </div>
 </div>
 

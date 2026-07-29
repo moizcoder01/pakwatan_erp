@@ -4,6 +4,12 @@ High-level ERP dashboard with executive KPIs, alerts, and chart analytics.
 Visibility is role-scoped:
   - Admin / Ops: org-wide operational + financial metrics
   - Client: deployment-only snapshot, no financial figures
+
+Every number rendered by templates/dashboard.html comes from a live
+Supabase query in this module. Nothing is hardcoded — if a query fails
+(missing table/column, RLS block, etc.) the helpers fall back to safe
+zero/empty defaults rather than raising, so the page never crashes and
+never silently shows fake data.
 """
 
 from datetime import date, datetime, timedelta
@@ -17,6 +23,10 @@ dashboard_bp = Blueprint("dashboard", __name__)
 
 EXPENSE_BUCKETS = ("Payroll", "Armory/Gear", "Utilities", "Rent", "Transport")
 LICENSE_EXPIRY_COLUMNS = ("license_expiry", "license_expiry_date", "expiry_date")
+
+# Confirmed schema: public.invoices(client_id, invoice_number, amount,
+# issue_date, due_date, status, created_at)
+INVOICE_TABLE = "invoices"
 
 
 def _safe_count(query):
@@ -133,12 +143,18 @@ def _bucket_manual_category(category):
 
 def _sum_invoice_revenue(client, month_start_value, month_end_value):
     rows = _safe_data(
-        client.table("invoices")
+        client.table(INVOICE_TABLE)
         .select("amount")
         .gte("issue_date", month_start_value)
         .lte("issue_date", month_end_value)
     )
     return sum(_safe_float(row.get("amount")) for row in rows)
+
+
+def _count_overdue_invoices(client):
+    return _safe_count(
+        client.table(INVOICE_TABLE).select("id", count="exact").eq("status", "Overdue")
+    )
 
 
 def _sum_current_month_payroll(client, payroll_label):
@@ -203,7 +219,7 @@ def _build_financial_trend(client, months):
     revenue_map = {month["key"]: 0.0 for month in months}
     expense_map = {month["key"]: 0.0 for month in months}
 
-    invoice_rows = _safe_data(client.table("invoices").select("issue_date, amount"))
+    invoice_rows = _safe_data(client.table(INVOICE_TABLE).select("issue_date, amount"))
     for row in invoice_rows:
         month_key = _parse_date_key(row.get("issue_date"))
         if month_key in revenue_map:
@@ -322,9 +338,7 @@ def _admin_dashboard_payload(client):
         client.table("weapons").select("id", count="exact").eq("status", "In Storage")
     )
 
-    overdue_invoices = _safe_count(
-        client.table("invoices").select("id", count="exact").eq("status", "Overdue")
-    )
+    overdue_invoices = _count_overdue_invoices(client)
     unassigned_guards_rows = _safe_data(
         client.table("guards").select("assigned_client_id").eq("is_active", True)
     )

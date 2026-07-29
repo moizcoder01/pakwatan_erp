@@ -43,6 +43,13 @@ EXPENSE_CATEGORIES = (
 
 PAYMENT_METHODS = ("Cash", "Bank Transfer")
 
+# Column-name fallbacks for the `weapons` master table, in case the
+# procurement-cost column isn't named the way the primary
+# `weapon_purchases` ledger table expects.
+WEAPON_COST_COLUMNS = ("purchase_cost", "cost", "price", "purchase_price")
+WEAPON_DATE_COLUMNS = ("purchase_date", "acquisition_date", "created_at")
+
+
 @finance_bp.route("/export/payslip/<payroll_id>")
 @login_required
 def export_payslip(payroll_id):
@@ -140,6 +147,23 @@ def _safe_query_rows(query):
         return result.data or []
     except Exception:
         return []
+
+
+def _execute_rows(query):
+    """Run a Supabase query and report whether it succeeded at all
+    (table/column exists and responded) versus genuinely returning zero
+    rows. Used to tell "no data this month" apart from "wrong table
+    name" so KPI cards fail over instead of silently showing Rs 0."""
+    try:
+        result = query.execute()
+        return True, result.data or []
+    except Exception:
+        return False, []
+
+
+def _table_is_queryable(client, table_name):
+    supported, _ = _execute_rows(client.table(table_name).select("id").limit(1))
+    return supported
 
 
 def _parse_iso_date(raw_value, fallback):
@@ -301,6 +325,8 @@ def _fetch_payroll_expense_rows(client, filters):
 
 
 def _fetch_weapon_purchase_rows(client, filters):
+    """Primary source for weapon procurement cost: the dedicated
+    `weapon_purchases` ledger table."""
     rows = _safe_query_rows(
         client.table("weapon_purchases")
         .select("id, vendor_name, purchase_cost, purchase_date, invoice_reference, notes")
@@ -328,7 +354,36 @@ def _fetch_weapon_purchase_rows(client, filters):
     return ledger
 
 
+def _weapon_master_total_fallback(client, filters):
+    """Fallback source when `weapon_purchases` doesn't exist/respond:
+    aggregate acquisition cost directly off the `weapons` armory table,
+    probing column-name variants since schemas differ across deployments."""
+    for cost_col in WEAPON_COST_COLUMNS:
+        for date_col in WEAPON_DATE_COLUMNS:
+            supported, rows = _execute_rows(
+                client.table("weapons")
+                .select(f"id, {cost_col}, {date_col}")
+                .gte(date_col, filters["start_date_value"])
+                .lte(date_col, filters["end_date_value"])
+            )
+            if supported:
+                return sum(_safe_float(row.get(cost_col)) for row in rows)
+    return 0.0
+
+
+def _fetch_weapon_procurement(client, filters):
+    """Returns (ledger_rows, total). Tries the dedicated ledger table
+    first; only falls back to the `weapons` master table if that table
+    genuinely isn't queryable, so a real zero-spend month still shows 0."""
+    if _table_is_queryable(client, "weapon_purchases"):
+        rows = _fetch_weapon_purchase_rows(client, filters)
+        return rows, sum(row["amount"] for row in rows)
+    return [], _weapon_master_total_fallback(client, filters)
+
+
 def _fetch_uniform_rows(client, filters):
+    """Primary source for uniform/gear cost: the dedicated `expenses`
+    issue-log table."""
     rows = _safe_query_rows(
         client.table("expenses")
         .select("id, item_type, description, quantity, amount, expense_date")
@@ -359,27 +414,56 @@ def _fetch_uniform_rows(client, filters):
     return ledger
 
 
+def _uniform_gear_total_fallback(client, filters):
+    """Fallback source when the `expenses` table doesn't exist/respond:
+    aggregate uniform/gear spend already logged as manual overhead under
+    the 'Uniforms & Tactical Gear' category. (Not added as separate
+    ledger rows — those entries already appear once, via the manual
+    expense ledger, so this only fixes the KPI total, not double-counts it.)"""
+    rows = _safe_query_rows(
+        client.table("manual_expenses")
+        .select("amount")
+        .eq("category", "Uniforms & Tactical Gear")
+        .gte("expense_date", filters["start_date_value"])
+        .lte("expense_date", filters["end_date_value"])
+    )
+    return sum(_safe_float(row.get("amount")) for row in rows)
+
+
+def _fetch_uniform_gear(client, filters):
+    """Returns (ledger_rows, total) with the same fail-over pattern as
+    weapon procurement."""
+    if _table_is_queryable(client, "expenses"):
+        rows = _fetch_uniform_rows(client, filters)
+        return rows, sum(row["amount"] for row in rows)
+    return [], _uniform_gear_total_fallback(client, filters)
+
+
 def _build_expense_tracker_payload(client, filters):
     """Merge manual + automated cost records into one filtered ledger."""
     manual_rows = _fetch_manual_expense_rows(client, filters)
     payroll_rows = _fetch_payroll_expense_rows(client, filters)
-    weapon_rows = _fetch_weapon_purchase_rows(client, filters)
-    uniform_rows = _fetch_uniform_rows(client, filters)
+    weapon_rows, weapon_total = _fetch_weapon_procurement(client, filters)
+    uniform_rows, uniform_total = _fetch_uniform_gear(client, filters)
 
     combined = manual_rows + payroll_rows + weapon_rows + uniform_rows
     filtered = [row for row in combined if _row_matches_filters(row, filters)]
     filtered.sort(key=lambda row: str(row.get("sort_key") or ""), reverse=True)
 
+    manual_total = sum(row["amount"] for row in manual_rows)
+    payroll_total = sum(row["amount"] for row in payroll_rows)
+
     summary = {
-        "manual_total": sum(row["amount"] for row in manual_rows),
-        "payroll_total": sum(row["amount"] for row in payroll_rows),
-        "weapon_total": sum(row["amount"] for row in weapon_rows),
-        "uniform_total": sum(row["amount"] for row in uniform_rows),
+        "manual_total": manual_total,
+        "payroll_total": payroll_total,
+        "weapon_total": weapon_total,
+        "uniform_total": uniform_total,
     }
-    summary["operational_total"] = (
-        summary["payroll_total"] + summary["weapon_total"] + summary["uniform_total"]
-    )
+    summary["operational_total"] = payroll_total + weapon_total + uniform_total
     summary["filtered_total"] = sum(row["amount"] for row in filtered)
+    # Manual overhead + guard salaries + weapon procurement + uniform/gear,
+    # independent of the category/payment/search filters above.
+    summary["total_overhead"] = manual_total + payroll_total + weapon_total + uniform_total
 
     return {
         "ledger_rows": filtered,
@@ -570,6 +654,7 @@ def expenses_tracker():
 
     filters = _resolve_expense_filters()
     tracker = _build_expense_tracker_payload(client, filters)
+    summary = tracker["summary"]
 
     return render_template(
         "finance/expenses.html",
@@ -577,7 +662,13 @@ def expenses_tracker():
         payment_methods=PAYMENT_METHODS,
         filters=filters,
         ledger_rows=tracker["ledger_rows"],
-        summary=tracker["summary"],
+        summary=summary,
+        # Explicit top-level KPI bindings (mirror the values already in
+        # `summary`, exposed directly for templates that bind to them by name).
+        weapon_procurements_total=summary["weapon_total"],
+        uniform_gear_total=summary["uniform_total"],
+        guard_salaries_total=summary["payroll_total"],
+        total_overhead=summary["total_overhead"],
     )
 
 

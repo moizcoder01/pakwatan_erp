@@ -2,110 +2,153 @@
 {% block title %}Dashboard — Pakwatan Security ERP{% endblock %}
 
 {% block content %}
+<style>
+  .alert-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .alert-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: #fff;
+  }
+  .alert-card__dot { margin-top: 5px; flex: 0 0 auto; }
+  .alert-card__title { font-weight: 600; font-size: 0.9rem; }
+  .alert-card__detail { font-size: 0.82rem; color: #64748b; margin-top: 2px; }
+  .alert-card--healthy { border-left: 4px solid #14b8a6; }
+  .alert-card--warning { border-left: 4px solid #f59e0b; }
+  .alert-card--danger  { border-left: 4px solid #ef4444; }
+  .alert-card--neutral { border-left: 4px solid #94a3b8; }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 900px) {
+    .chart-grid { grid-template-columns: 1fr; }
+  }
+  .chart-panel {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 16px;
+  }
+  .chart-panel h3 { margin: 0 0 12px; font-size: 0.95rem; }
+  .chart-canvas-wrap { position: relative; height: 260px; }
+
+  .armory-strip {
+    display: flex;
+    gap: 24px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+  .armory-stat { text-align: center; flex: 1; }
+  .armory-stat__value { font-size: 1.3rem; font-weight: 700; }
+  .armory-stat__label { font-size: 0.75rem; color: #64748b; }
+</style>
+
 <div class="page-header">
-    <h1>
-        {% if current_user.role == 'Client' %}Your Deployment Overview{% else %}Operations Dashboard{% endif %}
-    </h1>
-    <p>
-        {% if current_user.role == 'Client' %}
-            A live snapshot of the guards deployed to your site and any open tickets.
-        {% else %}
-            Org-wide snapshot across active clients, deployed guards, and the armory.
-        {% endif %}
-    </p>
+    <h1>{{ dashboard.hero.title }}</h1>
+    <p>{{ dashboard.hero.subtitle }}</p>
+    <span class="count-tag">{{ dashboard.hero.period_label }}</span>
 </div>
 
-<!-- ===================== METRIC CARDS ===================== -->
-<div class="metric-grid">
-    {% if current_user.role in ('Admin', 'Ops') %}
-        <div class="metric-card">
-            <div class="metric-card__eyebrow"><span class="led led--teal"></span> Guards On Duty</div>
-            <div class="metric-card__value">{{ metrics.guards_on_duty }}</div>
-            <div class="metric-card__context">of {{ metrics.active_guards }} active guards</div>
+<!-- ===================== ALERT TRIGGERS ===================== -->
+{% if dashboard.alerts %}
+<div class="alert-grid">
+    {% for alert in dashboard.alerts %}
+    <div class="alert-card alert-card--{{ alert.state }}">
+        <span class="led led--{{ 'teal' if alert.state == 'healthy' else ('amber' if alert.state == 'warning' else ('red' if alert.state == 'danger' else 'slate')) }} alert-card__dot"></span>
+        <div>
+            <div class="alert-card__title">{{ alert.title }}{% if alert.count %} ({{ alert.count }}){% endif %}</div>
+            <div class="alert-card__detail">{{ alert.detail }}</div>
         </div>
-        <div class="metric-card">
-            <div class="metric-card__eyebrow"><span class="led led--amber"></span> Active Clients</div>
-            <div class="metric-card__value">{{ metrics.active_clients }}</div>
-            <div class="metric-card__context">contracted sites under management</div>
-        </div>
-        <div class="metric-card {{ 'metric-card--alert' if metrics.open_complaints > 0 }}">
-            <div class="metric-card__eyebrow"><span class="led {{ 'led--red' if metrics.open_complaints > 0 else 'led--slate' }}"></span> Open Complaints</div>
-            <div class="metric-card__value">{{ metrics.open_complaints }}</div>
-            <div class="metric-card__context">unresolved client tickets</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-card__eyebrow"><span class="led led--slate"></span> Weapons Assigned</div>
-            <div class="metric-card__value">{{ metrics.weapons_assigned }}</div>
-            <div class="metric-card__context">issued from the armory</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-card__eyebrow"><span class="led led--amber"></span> Pending Deductions</div>
-            <div class="metric-card__value">Rs {{ "{:,.0f}".format(metrics.pending_deductions) }}</div>
-            <div class="metric-card__context">salary advances due next cycle</div>
-        </div>
-    {% else %}
-        <div class="metric-card">
-            <div class="metric-card__eyebrow"><span class="led led--teal"></span> Guards On Duty</div>
-            <div class="metric-card__value">{{ metrics.guards_on_duty }}</div>
-            <div class="metric-card__context">of {{ metrics.assigned_guards }} assigned to your site</div>
-        </div>
-        <div class="metric-card {{ 'metric-card--alert' if metrics.open_complaints > 0 }}">
-            <div class="metric-card__eyebrow"><span class="led {{ 'led--red' if metrics.open_complaints > 0 else 'led--slate' }}"></span> Open Complaints</div>
-            <div class="metric-card__value">{{ metrics.open_complaints }}</div>
-            <div class="metric-card__context">tickets you've raised, unresolved</div>
-        </div>
-    {% endif %}
+    </div>
+    {% endfor %}
 </div>
+{% endif %}
+
+<!-- ===================== KPI METRIC CARDS ===================== -->
+<div class="metric-grid">
+    {% for kpi in dashboard.kpis %}
+    <div class="metric-card">
+        <div class="metric-card__eyebrow">
+            <span class="led led--{{ kpi.tone }}"></span> {{ kpi.title }}
+        </div>
+        <div class="metric-card__value">
+            {% if kpi.value_currency is defined %}
+                Rs {{ "{:,.0f}".format(kpi.value_currency) }}
+            {% else %}
+                {{ kpi.value }}
+            {% endif %}
+        </div>
+        <div class="metric-card__context">{{ kpi.context }}</div>
+        {% if kpi.pill %}<span class="status-pill status-pill--{{ kpi.tone }}">{{ kpi.pill }}</span>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ===================== CHARTS ===================== -->
+{% if dashboard.charts %}
+<div class="chart-grid">
+    <div class="chart-panel">
+        <h3>Monthly Financial Trend — Revenue vs Expense</h3>
+        <div class="chart-canvas-wrap">
+            <canvas id="financialTrendChart"></canvas>
+        </div>
+    </div>
+    <div class="chart-panel">
+        <h3>Expense Distribution</h3>
+        <div class="chart-canvas-wrap">
+            <canvas id="expenseDistributionChart"></canvas>
+        </div>
+        {% if dashboard.armory %}
+        <div class="armory-strip">
+            <div class="armory-stat">
+                <div class="armory-stat__value">{{ dashboard.armory.assigned }}</div>
+                <div class="armory-stat__label">Assigned</div>
+            </div>
+            <div class="armory-stat">
+                <div class="armory-stat__value">{{ dashboard.armory.storage }}</div>
+                <div class="armory-stat__label">In Storage</div>
+            </div>
+            <div class="armory-stat">
+                <div class="armory-stat__value">{{ dashboard.armory.total }}</div>
+                <div class="armory-stat__label">Total Weapons</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 <!-- ===================== RECENT ACTIVITY ===================== -->
 <div class="panel-grid">
     <div class="panel">
         <div class="panel__header">
-            <h3>Recent Attendance</h3>
-            <span class="count-tag">{{ recent_attendance|length }} entries</span>
-        </div>
-        <table class="ledger">
-            <thead>
-                <tr><th>Date</th><th>Guard</th><th>Status</th><th>Note</th></tr>
-            </thead>
-            <tbody>
-                {% for row in recent_attendance %}
-                <tr>
-                    <td class="mono">{{ row.display_date or row.attendance_date or '—' }}</td>
-                    <td class="primary">{{ row.guards.full_name if row.guards else '—' }}</td>
-                    <td>
-                        {% if row.status in ('On Duty', 'Present') %}
-                            <span class="status-pill status-pill--teal">{{ row.status }}</span>
-                        {% elif row.status in ('On Leave', 'Leave') %}
-                            <span class="status-pill status-pill--amber">{{ 'Leave' if row.status == 'Leave' else row.status }}</span>
-                        {% else %}
-                            <span class="status-pill status-pill--red">{{ row.status }}</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ row.reason_for_absence or '—' }}</td>
-                </tr>
-                {% else %}
-                <tr class="empty-row"><td colspan="4">No attendance records yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <div class="panel">
-        <div class="panel__header">
             <h3>Recent Complaints</h3>
-            <span class="count-tag">{{ recent_complaints|length }} entries</span>
+            <span class="count-tag">{{ dashboard.recent_complaints|length }} entries</span>
         </div>
         <table class="ledger">
             <thead>
-                <tr><th>Logged</th><th>Client</th><th>Details</th><th>Status</th></tr>
+                <tr><th>Logged</th><th>Client</th><th>Guard</th><th>Details</th><th>Status</th></tr>
             </thead>
             <tbody>
-                {% for row in recent_complaints %}
+                {% for row in dashboard.recent_complaints %}
                 <tr>
                     <td class="mono">{{ row.logged_at[:10] if row.logged_at else '—' }}</td>
                     <td class="primary">{{ row.clients.client_name if row.clients else '—' }}</td>
-                    <td>{{ row.complaint_details[:60] }}{{ '…' if row.complaint_details|length > 60 }}</td>
+                    <td>{{ row.guards.full_name if row.guards else '—' }}</td>
+                    <td>{{ row.complaint_details[:60] }}{{ '…' if row.complaint_details and row.complaint_details|length > 60 }}</td>
                     <td>
                         {% if row.resolution_status == 'Resolved' %}
                             <span class="status-pill status-pill--teal">Resolved</span>
@@ -115,28 +158,29 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr class="empty-row"><td colspan="4">No complaints logged yet.</td></tr>
+                <tr class="empty-row"><td colspan="5">No complaints logged yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    {% if recent_advances is not none %}
+    {% if dashboard.recent_advances is not none %}
     <div class="panel">
         <div class="panel__header">
             <h3>Recent Salary Advances</h3>
-            <span class="count-tag">{{ recent_advances|length }} entries</span>
+            <span class="count-tag">{{ dashboard.recent_advances|length }} entries</span>
         </div>
         <table class="ledger">
             <thead>
-                <tr><th>Date</th><th>Guard</th><th>Amount</th><th>Status</th></tr>
+                <tr><th>Date</th><th>Guard</th><th>Amount</th><th>Reason</th><th>Status</th></tr>
             </thead>
             <tbody>
-                {% for row in recent_advances %}
+                {% for row in dashboard.recent_advances %}
                 <tr>
                     <td class="mono">{{ row.advance_date }}</td>
                     <td class="primary">{{ row.guards.full_name if row.guards else '—' }}</td>
                     <td class="mono">Rs {{ "{:,.0f}".format(row.amount) }}</td>
+                    <td>{{ row.reason or '—' }}</td>
                     <td>
                         {% if row.is_deducted %}
                             <span class="status-pill status-pill--slate">Deducted</span>
@@ -146,11 +190,88 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr class="empty-row"><td colspan="4">No salary advances logged yet.</td></tr>
+                <tr class="empty-row"><td colspan="5">No salary advances logged yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% endif %}
 </div>
+
+{% if dashboard_charts %}
+<!-- Hidden JSON Data Elements (Prevents JS Syntax Errors in VS Code) -->
+<div id="chart-data-trend" data-json='{{ dashboard_charts.financial_trend | tojson | safe }}' style="display: none;"></div>
+<div id="chart-data-expense" data-json='{{ dashboard_charts.expense_distribution | tojson | safe }}' style="display: none;"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const trendElem = document.getElementById("chart-data-trend");
+        const expenseElem = document.getElementById("chart-data-expense");
+
+        const trendData = trendElem ? JSON.parse(trendElem.getAttribute("data-json") || "{}") : {};
+        const expenseData = expenseElem ? JSON.parse(expenseElem.getAttribute("data-json") || "{}") : {};
+
+        const trendCtx = document.getElementById("financialTrendChart");
+        if (trendCtx && trendData) {
+            new Chart(trendCtx, {
+                type: "line",
+                data: {
+                    labels: trendData.labels || [],
+                    datasets: [
+                        {
+                            label: "Revenue",
+                            data: trendData.revenue || [],
+                            borderColor: "#14ba86",
+                            backgroundColor: "rgba(20, 184, 166, 0.15)",
+                            fill: true,
+                            tension: 0.35
+                        },
+                        {
+                            label: "Expense",
+                            data: trendData.expense || [],
+                            borderColor: "#f59e0b",
+                            backgroundColor: "rgba(245, 158, 11, 0.12)",
+                            fill: true,
+                            tension: 0.35
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: "bottom" } },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(val) { return "Rs " + Number(val).toLocaleString(); }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const expenseCtx = document.getElementById("expenseDistributionChart");
+        if (expenseCtx && expenseData) {
+            new Chart(expenseCtx, {
+                type: "doughnut",
+                data: {
+                    labels: expenseData.labels || [],
+                    datasets: [{
+                        data: expenseData.values || [],
+                        backgroundColor: ["#14ba86", "#0ea5e9", "#f59e0b", "#a855f7", "#ef4444"],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: "bottom" } }
+                }
+            });
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}
