@@ -22,8 +22,9 @@
 
 <body>
     {% if current_user %}
+    <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
     <div class="app-shell">
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar" aria-label="Main navigation">
             <div class="sidebar__brand">
                 <img class="brand-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Pakwatan Security logo">
                 <div class="sidebar__brand-name">Pakwatan Security</div>
@@ -98,6 +99,9 @@
 
         <div class="main-col">
             <header class="topbar">
+                <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar">
+                    <span class="sidebar-toggle__bar"></span>
+                </button>
                 <form class="search-form" action="{{ url_for('search.index') }}" method="get">
                     <div class="search-input-wrap">
                         <span class="icon">⌕</span>
@@ -150,6 +154,62 @@
             toggle.addEventListener('click', function () {
                 var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
                 applyTheme(next);
+            });
+        })();
+
+        (function () {
+            var sidebar = document.getElementById('sidebar');
+            var overlay = document.getElementById('sidebar-overlay');
+            var menuToggle = document.getElementById('sidebar-toggle');
+            if (!sidebar || !overlay || !menuToggle) return;
+
+            function openNav() {
+                sidebar.classList.add('is-open');
+                overlay.classList.add('is-visible');
+                menuToggle.classList.add('is-active');
+                menuToggle.setAttribute('aria-expanded', 'true');
+                menuToggle.setAttribute('aria-label', 'Close navigation menu');
+                document.body.classList.add('nav-open');
+            }
+
+            function closeNav() {
+                sidebar.classList.remove('is-open');
+                overlay.classList.remove('is-visible');
+                menuToggle.classList.remove('is-active');
+                menuToggle.setAttribute('aria-expanded', 'false');
+                menuToggle.setAttribute('aria-label', 'Open navigation menu');
+                document.body.classList.remove('nav-open');
+            }
+
+            function toggleNav() {
+                if (sidebar.classList.contains('is-open')) {
+                    closeNav();
+                } else {
+                    openNav();
+                }
+            }
+
+            menuToggle.addEventListener('click', toggleNav);
+            overlay.addEventListener('click', closeNav);
+
+            sidebar.querySelectorAll('.nav-item').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    if (window.matchMedia('(max-width: 991px)').matches) {
+                        closeNav();
+                    }
+                });
+            });
+
+            window.addEventListener('resize', function () {
+                if (window.innerWidth > 991) {
+                    closeNav();
+                }
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && sidebar.classList.contains('is-open')) {
+                    closeNav();
+                }
             });
         })();
     </script>

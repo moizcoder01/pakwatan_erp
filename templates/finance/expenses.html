@@ -164,6 +164,7 @@
         <span class="count-tag">Total Expense Overhead: Rs {{ "{:,.0f}".format(summary.filtered_total) }}</span>
     </div>
     <div style="overflow-x: auto;">
+        <div class="table-responsive">
         <table class="ledger">
             <thead>
                 <tr>
@@ -203,6 +204,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -85,6 +85,7 @@
         <span class="count-tag">{{ recent_invoices|length }} latest</span>
     </div>
     <div style="overflow-x: auto;">
+        <div class="table-responsive">
         <table class="ledger">
             <thead>
                 <tr>
@@ -126,6 +127,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 {% endblock %}
