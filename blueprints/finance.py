@@ -708,6 +708,7 @@ def invoices():
     default_invoice_number = _next_invoice_number(client)
     default_issue = date.today().isoformat()
     default_due = (date.today() + timedelta(days=30)).isoformat()
+    default_target_month = date.today().strftime("%Y-%m")
 
     return render_template(
         "finance/invoices.html",
@@ -719,6 +720,7 @@ def invoices():
         default_invoice_number=default_invoice_number,
         default_issue=default_issue,
         default_due=default_due,
+        default_target_month=default_target_month,
         client_filter=client_filter,
         month_filter=month_filter,
     )
@@ -735,6 +737,131 @@ def mark_invoice_paid(invoice_id):
         flash(f"Failed to update invoice: {e}", "error")
     return redirect(url_for("finance.invoices"))
 
+@finance_bp.route("/invoices/bulk-generate", methods=["POST"])
+@login_required
+def bulk_generate_invoices():
+    """Auto-create Unpaid invoices for every active client for a target month,
+    skipping clients that already have an invoice issued in that month."""
+    client = get_session_client()
+
+    target_month = request.form.get("target_month", "").strip()  # "YYYY-MM"
+    due_offset_raw = request.form.get("due_offset_days", "30").strip()
+
+    if not target_month:
+        flash("Please select a target month.", "error")
+        return redirect(url_for("finance.invoices"))
+
+    try:
+        month_start = datetime.strptime(target_month, "%Y-%m").date()
+    except ValueError:
+        flash("Invalid target month format.", "error")
+        return redirect(url_for("finance.invoices"))
+
+    try:
+        due_offset_days = int(due_offset_raw)
+    except ValueError:
+        due_offset_days = 30
+
+    month_end = (
+        month_start.replace(year=month_start.year + 1, month=1)
+        if month_start.month == 12
+        else month_start.replace(month=month_start.month + 1)
+    ) - timedelta(days=1)
+    month_label = month_start.strftime("%B %Y")
+
+    # Active clients
+    try:
+        clients_res = (
+            client.table("clients")
+            .select("id, client_name, company_name, monthly_billing_rate, rate_per_guard, status")
+            .eq("status", "Active")
+            .execute()
+        )
+        active_clients = clients_res.data or []
+    except Exception as e:
+        flash(f"Failed to load clients: {e}", "error")
+        return redirect(url_for("finance.invoices"))
+
+    if not active_clients:
+        flash("No active clients found to generate invoices for.", "error")
+        return redirect(url_for("finance.invoices"))
+
+    # Clients that already have an invoice issued within the target month
+    try:
+        existing_res = (
+            client.table("invoices")
+            .select("client_id")
+            .gte("issue_date", month_start.isoformat())
+            .lte("issue_date", month_end.isoformat())
+            .execute()
+        )
+        existing_client_ids = {row.get("client_id") for row in (existing_res.data or [])}
+    except Exception as e:
+        flash(f"Failed to check existing invoices for {month_label}: {e}", "error")
+        return redirect(url_for("finance.invoices"))
+
+    issue_date = date.today().isoformat()
+    due_date = (date.today() + timedelta(days=due_offset_days)).isoformat()
+
+    # Reserve a block of sequential invoice numbers up front to avoid re-querying per client
+    starting_number = _next_invoice_number(client)
+    try:
+        prefix, seq_str = starting_number.rsplit("-", 1)
+        seq_counter = int(seq_str)
+        prefix = prefix + "-"
+    except ValueError:
+        prefix = f"INV-{date.today().year}-"
+        seq_counter = 1
+
+    created_count = 0
+    skipped_existing = 0
+    skipped_no_rate = 0
+    failed_count = 0
+
+    for c in active_clients:
+        client_id = c.get("id")
+        if not client_id or client_id in existing_client_ids:
+            skipped_existing += 1
+            continue
+
+        rate = c.get("monthly_billing_rate")
+        if rate is None or rate == "":
+            rate = c.get("rate_per_guard")
+        amount = _safe_float(rate)
+
+        if amount <= 0:
+            skipped_no_rate += 1
+            continue
+
+        invoice_number = f"{prefix}{seq_counter:03d}"
+        seq_counter += 1
+
+        payload = {
+            "client_id": client_id,
+            "invoice_number": invoice_number,
+            "amount": amount,
+            "issue_date": issue_date,
+            "due_date": due_date,
+            "status": "Unpaid",
+        }
+
+        try:
+            client.table("invoices").insert(payload).execute()
+            created_count += 1
+        except Exception:
+            failed_count += 1
+
+    total_skipped = skipped_existing + skipped_no_rate + failed_count
+    message = (
+        f"Successfully generated {created_count} new invoice"
+        f"{'s' if created_count != 1 else ''} for {month_label} "
+        f"({total_skipped} skipped as already created)"
+    )
+    if skipped_no_rate or failed_count:
+        message += f" — {skipped_no_rate} had no billing rate, {failed_count} failed to save"
+
+    flash(message, "success" if created_count > 0 else "error")
+    return redirect(url_for("finance.invoices", month=target_month))
 
 def _build_payroll_export_rows(client, status_filter="", month_filter=""):
     query = (
