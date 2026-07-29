@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Salary Advances Ledger — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1>Guard Salary Advances</h1>
+        <p>Track cash advances issued to guards and their automatic payroll deduction status.</p>
+    </div>
+    <a href="{{ url_for('advances.add') }}" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px;">
+        <span>+</span> Log Salary Advance
+    </a>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="panel" style="padding: 16px 20px;">
+        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">Pending (Outstanding)</div>
+        <div class="mono" style="font-size: 1.3rem; font-weight: 700; color: var(--accent-amber);">Rs. {{ "{:,.2f}".format(totals.pending_total) }}</div>
+    </div>
+    <div class="panel" style="padding: 16px 20px;">
+        <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">Deducted (Cleared)</div>
+        <div class="mono" style="font-size: 1.3rem; font-weight: 700; color: var(--accent-teal);">Rs. {{ "{:,.2f}".format(totals.deducted_total) }}</div>
+    </div>
+</div>
+
+<div class="filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto;">
+    <a href="{{ url_for('advances.index') }}" class="tab-item {{ 'active' if not status_filter }}">
+        All <span class="tab-badge">{{ counts.All }}</span>
+    </a>
+    <a href="{{ url_for('advances.index', status='Pending') }}" class="tab-item {{ 'active' if status_filter == 'Pending' }}">
+        <span class="led led--amber"></span> Pending <span class="tab-badge">{{ counts.Pending }}</span>
+    </a>
+    <a href="{{ url_for('advances.index', status='Deducted') }}" class="tab-item {{ 'active' if status_filter == 'Deducted' }}">
+        <span class="led led--slate"></span> Deducted <span class="tab-badge">{{ counts.Deducted }}</span>
+    </a>
+</div>
+
+<div class="panel">
+    <div class="panel__header">
+        <h3>{% if status_filter %}{{ status_filter }} Advances{% else %}All Salary Advances{% endif %}</h3>
+        <span class="count-tag">{{ advances|length }} Record(s)</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="ledger">
+            <thead>
+                <tr><th>Guard</th><th>Amount</th><th>Reason</th><th>Advance Date</th><th>Status</th><th>Deducted On</th></tr>
+            </thead>
+            <tbody>
+                {% for a in advances %}
+                <tr>
+                    <td class="primary">{{ a.guards.full_name if a.guards else '—' }}</td>
+                    <td class="mono">Rs. {{ "{:,.2f}".format(a.amount or 0) }}</td>
+                    <td>{{ (a.reason or '—')[:60] }}{{ '…' if a.reason and a.reason|length > 60 }}</td>
+                    <td class="mono" style="font-size: 0.82rem;">{{ a.advance_date or '—' }}</td>
+                    <td>
+                        {% if a.is_deducted %}
+                            <span class="status-pill status-pill--slate">Deducted</span>
+                        {% else %}
+                            <span class="status-pill status-pill--amber">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td class="mono" style="font-size: 0.82rem;">{{ a.deducted_on or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr class="empty-row"><td colspan="6">No salary advances logged yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

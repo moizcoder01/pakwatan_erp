@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Log Salary Advance — Pakwatan Security ERP{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1>Log Salary Advance</h1>
+        <p>Record a cash advance against a guard's upcoming salary. It's auto-deducted on their next payroll run.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('advances.index') }}" class="logout-link" style="text-decoration: none;">
+            ← Back to Advances Ledger
+        </a>
+    </div>
+</div>
+
+<div class="panel" style="max-width: 560px; margin: 0 auto;">
+    <div class="panel__header">
+        <h3>New Advance</h3>
+        <span class="count-tag">Pending</span>
+    </div>
+    <form action="{{ url_for('advances.add') }}" method="post" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
+        <div class="field">
+            <label for="guard_id">Guard <span style="color: var(--accent-red);">*</span></label>
+            <select id="guard_id" name="guard_id" class="form-select" required>
+                <option value="">-- Select Guard --</option>
+                {% for g in guards %}
+                <option value="{{ g.id }}" {% if form_data.get('guard_id') == g.id %}selected{% endif %}>
+                    {% if g.guard_id %}[{{ g.guard_id }}] {% endif %}{{ g.full_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="field">
+            <label for="amount">Amount (PKR) <span style="color: var(--accent-red);">*</span></label>
+            <input type="number" step="any" min="0.01" id="amount" name="amount"
+                value="{{ form_data.get('amount', '') }}" required placeholder="e.g. 5000" inputmode="decimal">
+        </div>
+
+        <div class="field">
+            <label for="advance_date">Advance Date</label>
+            <input type="date" id="advance_date" name="advance_date" value="{{ form_data.get('advance_date') }}">
+        </div>
+
+        <div class="field">
+            <label for="reason">Reason <span style="color: var(--accent-red);">*</span></label>
+            <textarea id="reason" name="reason" rows="3" required
+                placeholder="e.g. Family medical emergency">{{ form_data.get('reason', '') }}</textarea>
+        </div>
+
+        <div class="field" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="auto_deduct_next_month" name="auto_deduct_next_month"
+                {% if form_data.get('auto_deduct_next_month', 'on') == 'on' %}checked{% endif %} style="width: auto;">
+            <label for="auto_deduct_next_month" style="margin: 0;">Auto-deduct on next payroll run</label>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+            Uncheck this only if the guard has a manual repayment arrangement outside payroll.
+            Unchecked advances stay Pending indefinitely until manually reconciled.
+        </p>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end; border-top: 1px solid var(--border-hairline); padding-top: 16px;">
+            <a href="{{ url_for('advances.index') }}" class="logout-link" style="text-decoration: none;">Cancel</a>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 10px 24px;">Log Advance</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -27,6 +27,7 @@ from blueprints.weapons import weapons_bp
 from blueprints.complaints import complaints_bp
 from blueprints.roles import roles_bp
 from blueprints.admin import admin_bp
+from blueprints.advances import advances_bp
 
 
 def create_app():
@@ -51,7 +52,7 @@ def create_app():
     app.register_blueprint(complaints_bp, url_prefix="/complaints")
     app.register_blueprint(roles_bp, url_prefix="/roles")
     app.register_blueprint(admin_bp, url_prefix="/admin")
-
+    app.register_blueprint(advances_bp, url_prefix="/advances")
 
 
 

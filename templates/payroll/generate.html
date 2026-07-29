@@ -95,6 +95,10 @@
                     <input type="number" step="100" id="deductions" name="deductions" value="{{ form_data.get('deductions', '0') }}" oninput="calculateNet()">
                 </div>
             </div>
+            <div class="field" style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <input type="checkbox" id="auto_apply_advances" name="auto_apply_advances" checked style="width: auto;">
+                <label for="auto_apply_advances" style="margin: 0;">Auto-apply this guard's pending salary advances</label>
+            </div>
 
             <div style="background: var(--bg-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 16px 20px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="font-size: 0.88rem; color: var(--text-secondary);">Calculated Net Salary:</div>

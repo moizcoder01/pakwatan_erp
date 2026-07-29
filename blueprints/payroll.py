@@ -322,13 +322,14 @@ def _pending_advances_for_guard(client, guard_id):
         return []
 
 
-def _mark_advances_deducted(client, advance_ids, deducted_on):
+def _mark_advances_deducted(client, advance_ids, deducted_on, payroll_id=None):
     if not advance_ids:
         return
+    update_payload = {"is_deducted": True, "deducted_on": deducted_on}
+    if payroll_id:
+        update_payload["deducted_in_payroll_id"] = payroll_id
     try:
-        client.table("salary_advances").update(
-            {"is_deducted": True, "deducted_on": deducted_on}
-        ).in_("id", advance_ids).execute()
+        client.table("salary_advances").update(update_payload).in_("id", advance_ids).execute()
     except Exception:
         pass
 
@@ -385,18 +386,35 @@ def generate():
             try:
                 base_salary = float(base_salary_raw) if base_salary_raw else 0.0
                 bonus = float(bonus_raw) if bonus_raw else 0.0
-                deductions = float(deductions_raw) if deductions_raw else 0.0
+                manual_deductions = float(deductions_raw) if deductions_raw else 0.0
             except ValueError:
-                base_salary, bonus, deductions = 0.0, 0.0, 0.0
+                base_salary, bonus, manual_deductions = 0.0, 0.0, 0.0
 
-            net_salary = base_salary + bonus - deductions
+            # Auto-fetch + apply pending salary advances for this guard,
+            # same behavior as bulk generation, so no payroll path can
+            # accidentally skip advance recovery.
+            auto_apply_advances = request.form.get("auto_apply_advances", "on") == "on"
+            advance_total = 0.0
+            advance_ids_to_clear = []
+            if auto_apply_advances:
+                for adv in _pending_advances_for_guard(client, guard_id):
+                    advance_total += float(adv.get("amount") or 0)
+                    advance_ids_to_clear.append(adv["id"])
+
+            total_deductions = manual_deductions + advance_total
+            net_salary = base_salary + bonus - total_deductions
             payload = {
                 "guard_id": guard_id, "month": month_label, "base_salary": base_salary,
-                "bonus": bonus, "deductions": deductions, "net_salary": net_salary, "status": status,
+                "bonus": bonus, "deductions": total_deductions, "advance_deduction": advance_total,
+                "net_salary": net_salary, "status": status,
             }
             try:
-                client.table("payroll").insert(payload).execute()
-                flash(f"Individual payslip for {month_label} generated! (Net: Rs. {net_salary:,.2f})", "success")
+                res = client.table("payroll").insert(payload).execute()
+                new_payroll_id = res.data[0]["id"] if res.data else None
+                if advance_ids_to_clear:
+                    _mark_advances_deducted(client, advance_ids_to_clear, date.today().isoformat(), new_payroll_id)
+                flash(f"Individual payslip for {month_label} generated! (Net: Rs. {net_salary:,.2f}"
+                      + (f", incl. Rs. {advance_total:,.2f} advance recovery)" if advance_total else ")"), "success")
                 return redirect(url_for("payroll.index"))
             except Exception as e:
                 err_msg = str(e)
@@ -432,13 +450,15 @@ def generate():
             net_salary = base_salary - deductions
             payload = {
                 "guard_id": g["id"], "month": month_label, "base_salary": base_salary,
-                "bonus": 0.0, "deductions": deductions, "net_salary": net_salary, "status": "Pending",
+                "bonus": 0.0, "deductions": deductions, "advance_deduction": deductions,
+                "net_salary": net_salary, "status": "Pending",
             }
             try:
-                client.table("payroll").insert(payload).execute()
+                res = client.table("payroll").insert(payload).execute()
+                new_payroll_id = res.data[0]["id"] if res.data else None
                 generated_count += 1
                 if advance_ids_to_clear:
-                    _mark_advances_deducted(client, advance_ids_to_clear, date.today().isoformat())
+                    _mark_advances_deducted(client, advance_ids_to_clear, date.today().isoformat(), new_payroll_id)
             except Exception as e:
                 errors.append(f"{g.get('full_name', 'Guard')}: {e}")
 
