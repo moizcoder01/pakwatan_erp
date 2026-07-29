@@ -33,6 +33,35 @@ def _get_guards_list(client):
         except Exception:
             return []
 
+def _get_guards_with_pending_advances(client):
+    """Guards list for dropdowns, each annotated with pending_advances
+    (sum of un-deducted salary_advances) so the UI can auto-fill deductions."""
+    guards = _get_guards_list(client)
+    if not guards:
+        return guards
+
+    try:
+        adv_res = (
+            client.table("salary_advances")
+            .select("guard_id, amount")
+            .eq("is_deducted", False)
+            .execute()
+        )
+        pending_rows = adv_res.data or []
+    except Exception:
+        pending_rows = []
+
+    pending_by_guard = {}
+    for row in pending_rows:
+        gid = row.get("guard_id")
+        if not gid:
+            continue
+        pending_by_guard[gid] = pending_by_guard.get(gid, 0.0) + float(row.get("amount") or 0)
+
+    for g in guards:
+        g["pending_advances"] = pending_by_guard.get(g["id"], 0.0)
+
+    return guards
 
 def _normalize_attendance_row(row):
     """Unify date fields across Phase-1 (attendance_date) and later (date) schemas."""
@@ -365,21 +394,29 @@ def generate():
             bonus_raw = request.form.get("bonus", "").strip()
             deductions_raw = request.form.get("deductions", "").strip()
             status = request.form.get("status", "Pending").strip()
+            auto_apply_advances = request.form.get("auto_apply_advances_custom") == "on"
 
             if not guard_id:
                 flash("Please select a Guard for individual/custom payroll generation.", "error")
-                guards = _get_guards_list(client)
-                return render_template("payroll/generate.html", guards=guards,
-                                       default_month_value=default_month_value, form_data=request.form)
+                guards = _get_guards_with_pending_advances(client)
+                return render_template(
+                    "payroll/generate.html", 
+                    guards=guards,
+                    default_month_value=default_month_value, 
+                    form_data=request.form
+                )
 
             try:
-                existing = client.table("payroll").select("id") \
-                    .eq("guard_id", guard_id).eq("month", month_label).limit(1).execute()
+                existing = client.table("payroll").select("id").eq("guard_id", guard_id).eq("month", month_label).limit(1).execute()
                 if existing.data:
                     flash(f"A payroll record for this guard in {month_label} already exists.", "error")
-                    guards = _get_guards_list(client)
-                    return render_template("payroll/generate.html", guards=guards,
-                                           default_month_value=default_month_value, form_data=request.form)
+                    guards = _get_guards_with_pending_advances(client)
+                    return render_template(
+                        "payroll/generate.html", 
+                        guards=guards,
+                        default_month_value=default_month_value, 
+                        form_data=request.form
+                    )
             except Exception:
                 pass
 
@@ -390,10 +427,8 @@ def generate():
             except ValueError:
                 base_salary, bonus, manual_deductions = 0.0, 0.0, 0.0
 
-            # Auto-fetch + apply pending salary advances for this guard,
-            # same behavior as bulk generation, so no payroll path can
-            # accidentally skip advance recovery.
-            auto_apply_advances = request.form.get("auto_apply_advances", "on") == "on"
+            # The submitted deductions value already includes the advance
+            # amount if auto-apply was checked (JS pre-fills it client-side).
             advance_total = 0.0
             advance_ids_to_clear = []
             if auto_apply_advances:
@@ -401,12 +436,18 @@ def generate():
                     advance_total += float(adv.get("amount") or 0)
                     advance_ids_to_clear.append(adv["id"])
 
-            total_deductions = manual_deductions + advance_total
+            total_deductions = max(manual_deductions, advance_total) if auto_apply_advances else manual_deductions
+
             net_salary = base_salary + bonus - total_deductions
             payload = {
-                "guard_id": guard_id, "month": month_label, "base_salary": base_salary,
-                "bonus": bonus, "deductions": total_deductions, "advance_deduction": advance_total,
-                "net_salary": net_salary, "status": status,
+                "guard_id": guard_id,
+                "month": month_label,
+                "base_salary": base_salary,
+                "bonus": bonus,
+                "deductions": total_deductions,
+                "advance_deduction": advance_total,
+                "net_salary": net_salary,
+                "status": status,
             }
             try:
                 res = client.table("payroll").insert(payload).execute()
@@ -419,15 +460,18 @@ def generate():
             except Exception as e:
                 err_msg = str(e)
                 if "PGRST204" in err_msg:
-                    flash("Payroll table/columns missing. Re-run schema_chunk6.sql, then try again.", "error")
+                    flash("Payroll table/columns missing. Re-run schema_chunk6.sql (and schema_chunk10.sql), then try again.", "error")
                 else:
                     flash(f"Failed to generate payslip: {err_msg}", "error")
-                guards = _get_guards_list(client)
-                return render_template("payroll/generate.html", guards=guards,
-                                       default_month_value=default_month_value, form_data=request.form)
-
+                guards = _get_guards_with_pending_advances(client)
+                return render_template(
+                    "payroll/generate.html", 
+                    guards=guards,
+                    default_month_value=default_month_value, 
+                    form_data=request.form
+                )
         # --- Bulk mode: every active guard for the selected month -----------
-        auto_apply_advances = request.form.get("auto_apply_advances") == "on"
+        auto_apply_advances = request.form.get("auto_apply_advances_bulk") == "on"
         guards = _active_guards_for_payroll(client)
         already_processed = _guard_ids_with_payroll_for_month(client, month_label)
 
@@ -473,7 +517,7 @@ def generate():
 
         return redirect(url_for("payroll.index", month=month_label))
 
-    guards = _get_guards_list(client)
+    guards = _get_guards_with_pending_advances(client)
     return render_template("payroll/generate.html", guards=guards,
                            default_month_value=default_month_value, form_data={})
 

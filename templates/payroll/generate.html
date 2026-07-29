@@ -51,9 +51,10 @@
 
         <div id="bulkFields">
             <div class="field" style="display: flex; align-items: center; gap: 8px;">
-                <input type="checkbox" id="auto_apply_advances" name="auto_apply_advances" checked style="width: auto;">
-                <label for="auto_apply_advances" style="margin: 0;">Auto-apply pending salary advances as deductions</label>
+                <input type="checkbox" id="auto_apply_advances_bulk" name="auto_apply_advances_bulk" checked style="width: auto;">
+                <label for="auto_apply_advances_bulk" style="margin: 0;">Auto-apply pending salary advances as deductions</label>
             </div>
+
             <p style="font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); padding: 10px 14px;">
                 Generates a <strong>Pending</strong> payslip for every active guard without an existing payroll
                 record for the selected month. Already-processed guards are skipped automatically — safe to re-run.
@@ -63,14 +64,22 @@
         <div id="customFields" style="display: none;">
             <div class="field">
                 <label for="guard_id">Select Guard <span style="color: var(--accent-red);">*</span></label>
-                <select id="guard_id" name="guard_id" class="form-select" onchange="updateBaseSalary(this)">
-                    <option value="" data-salary="0">-- Choose Guard (including inactive/offboarding) --</option>
+                <select id="guard_id" name="guard_id" class="form-select" onchange="updateGuardDetails(this)">
+                    <option value="" data-salary="0" data-advance="0">-- Choose Guard (including inactive/offboarding) --</option>
                     {% for g in guards %}
-                    <option value="{{ g.id }}" data-salary="{{ g.base_salary or 30000 }}" {% if form_data.get('guard_id') == g.id %}selected{% endif %}>
+                    <option value="{{ g.id }}"
+                        data-salary="{{ g.base_salary or 30000 }}"
+                        data-advance="{{ g.pending_advances or 0 }}"
+                        {% if form_data.get('guard_id') == g.id %}selected{% endif %}>
                         {% if g.guard_id %}[{{ g.guard_id }}] {% endif %}{{ g.full_name }} — Base: Rs. {{ "{:,.2f}".format(g.base_salary or 30000) }}
+                        {% if g.pending_advances %} · Rs. {{ "{:,.0f}".format(g.pending_advances) }} pending advance{% endif %}
                     </option>
                     {% endfor %}
                 </select>
+            </div>
+            <div class="field" style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <input type="checkbox" id="auto_apply_advances_custom" name="auto_apply_advances_custom" checked style="width: auto;">
+                <label for="auto_apply_advances_custom" style="margin: 0;">Auto-apply this guard's pending salary advances</label>
             </div>
 
             <div class="field">
@@ -120,11 +129,25 @@ function toggleMode() {
     document.getElementById('customFields').style.display = isBulk ? 'none' : 'block';
     document.getElementById('guard_id').required = !isBulk;
 }
-function updateBaseSalary(selectElem) {
-    const baseSal = selectElem.options[selectElem.selectedIndex].getAttribute('data-salary');
-    if (baseSal && baseSal > 0) document.getElementById('base_salary').value = baseSal;
+
+function updateGuardDetails(selectElem) {
+    const selected = selectElem.options[selectElem.selectedIndex];
+    const baseSal = parseFloat(selected.getAttribute('data-salary')) || 0;
+    if (baseSal > 0) document.getElementById('base_salary').value = baseSal;
+
+    applyAdvanceToDeductions();
+}
+
+function applyAdvanceToDeductions() {
+    const selectElem = document.getElementById('guard_id');
+    const selected = selectElem.options[selectElem.selectedIndex];
+    const advanceAmount = parseFloat(selected.getAttribute('data-advance')) || 0;
+    const autoApply = document.getElementById('auto_apply_advances_custom').checked;
+
+    document.getElementById('deductions').value = autoApply ? advanceAmount : 0;
     calculateNet();
 }
+
 function calculateNet() {
     const base = parseFloat(document.getElementById('base_salary').value) || 0;
     const bonus = parseFloat(document.getElementById('bonus').value) || 0;
@@ -132,6 +155,11 @@ function calculateNet() {
     document.getElementById('net_salary_display').innerText =
         'Rs. ' + (base + bonus - ded).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
-document.addEventListener('DOMContentLoaded', function () { toggleMode(); calculateNet(); });
+
+document.addEventListener('DOMContentLoaded', function () {
+    toggleMode();
+    calculateNet();
+    document.getElementById('auto_apply_advances_custom').addEventListener('change', applyAdvanceToDeductions);
+});
 </script>
 {% endblock %}
